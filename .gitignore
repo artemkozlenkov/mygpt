@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+env/
+venv/
+.venv/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Docker
+**/Dockerfile
+**/docker-compose.yml
+**/.env
+**/litellm_config.yaml  # Include if sensitive data is not already excluded
+**/*.image.tar
+**/build/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+crash.log
+*.tfvars
+*.zip
+
+# VS Code
+.vscode/
+.history/
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# GitHub secrets
+*.key
+*.pem

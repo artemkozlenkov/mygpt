@@ -1,0 +1,82 @@
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-v1.49.2
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    environment:
+      DATABASE_URL: postgres://llmproxy:dbpassword9090@db:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+      LITELLM_MASTER_KEY: "sk-124781258123"
+      LITELLM_TLS_ENABLED: "True"
+      # VIRTUAL_HOST: localhost
+      
+    env_file:
+      - .env
+    command: ["--config", "/app/config.yaml", "--detailed_debug"] 
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    volumes:
+      - open-webui:/app/backend/data
+    ports:
+      - 8080:8080
+    depends_on:
+    - db
+    environment:
+      WEBUI_AUTH: False
+      ENABLE_OLLAMA_API: False
+      OPENAI_API_BASE_URL: "http://litellm:4000"
+      OPENAI_API_KEYS: "sk-124781258123"
+      DEFAULT_MODELS: "gpt-4o-mini"
+      REDIRECT_URI: "http://localhost:8080/auth/callback"
+      DATABASE_URL: postgresql://llmproxy:dbpassword9090@db:5432/openwebui
+      # letencrypt
+      # LETSENCRYPT_HOST=your-app-domain.com
+      # LETSENCRYPT_EMAIL=your-email@example.com
+    restart: unless-stopped
+  
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: llmproxy
+      POSTGRES_PASSWORD: dbpassword9090
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb.d:/docker-entrypoint-initdb.d
+    restart: always
+  
+  # nginx-proxy:
+  #   image: jwilder/nginx-proxy
+  #   ports:
+  #     - "8000:80"
+  #     - "443:443"
+  #   volumes:
+  #     - /var/run/docker.sock:/tmp/docker.sock:ro
+  #   environment:
+  #     - DEFAULT_HOST=localhost
+
+  # letsencrypt-companion:
+  #   image: jrcs/letsencrypt-nginx-proxy-companion
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - ./certs:/etc/nginx/certs:rw
+  #   depends_on:
+  #     - nginx-proxy
+  #   environment:
+  #     - NGINX_PROXY_CONTAINER=nginx-proxy
+    
+volumes:
+  litellm: {}
+  open-webui: {}
+  pgdata: 
+
+networks:
+  default:
+    driver: bridge
