@@ -44,3 +44,5 @@ Thumbs.db
 # GitHub secrets
 *.key
 *.pem
+*.env*
+*./pgdata*

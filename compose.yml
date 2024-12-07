@@ -1,5 +1,6 @@
 services:
   litellm:
+    container_name: litellm
     image: ghcr.io/berriai/litellm:main-v1.53.1
     ports:
       - "4000:4000"
@@ -7,39 +8,23 @@ services:
       - db
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-    environment:
-      DATABASE_URL: postgres://llmproxy:dbpassword9090@db:5432/litellm
-      STORE_MODEL_IN_DB: "True"
-      LITELLM_MASTER_KEY: "sk-124781258123"
-      LITELLM_TLS_ENABLED: "True"
-    env_file:
-      - .env
-    command: ["--config", "/app/config.yaml", "--detailed_debug"] 
+    env_file: .env.litellm
+    command: ["--config", "/app/config.yaml", "--detailed_debug"]
 
   openwebui:
-    image: ghcr.io/open-webui/open-webui:0.4.7
-    container_name: open-webui
+    container_name: webui
+    image: ghcr.io/open-webui/open-webui:0.4.8
     volumes:
       - open-webui:/app/backend/data
     ports:
-      - 8080:8080
+      - "8080:8080"
     depends_on:
-    - db
-    environment:
-      WEBUI_AUTH: False
-      ENABLE_OLLAMA_API: False
-      OPENAI_API_BASE_URL: "http://litellm:4000"
-      OPENAI_API_KEYS: "sk-124781258123"
-      DEFAULT_MODELS: gpt-4o
-      REDIRECT_URI: "http://localhost:8080/auth/callback"
-      DATABASE_URL: postgresql://llmproxy:dbpassword9090@db:5432/openwebui
-      ENABLE_RAG_WEB_SEARCH: True
-      ENABLE_SEARCH_QUERY: True
-      RAG_WEB_SEARCH_ENGINE: searxng
-      SEARXNG_QUERY_URL: http://searxng:8888/search?q=<query>
+      - db
+    env_file: .env.owui
     restart: unless-stopped
-  
+
   db:
+    container_name: db
     image: postgres:latest
     environment:
       POSTGRES_USER: llmproxy
@@ -47,20 +32,20 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./pgdata:/var/lib/postgresql/data:rw
       - ./initdb.d:/docker-entrypoint-initdb.d
-  
-  redis:  # New Redis service for caching
+
+  redis: 
+    container_name: redis
     image: redis:latest
     ports:
       - "6379:6379"
     restart: unless-stopped
 
-
 volumes:
   litellm: {}
   open-webui: {}
-  pgdata: 
+  pgdata: {}
 
 networks:
   default:
