@@ -4,4 +4,10 @@ model_list:
       model: azure/gpt-4o-mini
       api_base: os.environ/AZURE_API_BASE 
       api_key: os.environ/AZURE_API_KEY 
-      api_version: "2024-08-01-preview"
+      api_version: 2024-08-01-preview
+  - model_name: gpt-4o
+    litellm_params:
+      model: azure/gpt-4o
+      api_base: os.environ/AZURE_API_BASE 
+      api_key: os.environ/AZURE_API_KEY 
+      api_version: 2024-08-01-preview
