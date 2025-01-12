@@ -1,7 +1,8 @@
 services:
   litellm:
     container_name: litellm
-    image: ghcr.io/berriai/litellm:main-v1.53.1
+    image: ghcr.io/berriai/litellm:main-v1.57.8
+    restart: unless-stopped
     ports:
       - "4000:4000"
     depends_on:
@@ -10,22 +11,27 @@ services:
       - ./litellm_config.yaml:/app/config.yaml
     env_file: .env.litellm
     command: ["--config", "/app/config.yaml", "--detailed_debug"]
+    networks:
+      - my_network
 
   openwebui:
     container_name: webui
-    image: ghcr.io/open-webui/open-webui:0.4.8
+    image: ghcr.io/open-webui/open-webui:0.5.4
     volumes:
       - open-webui:/app/backend/data
     ports:
-      - "8080:8080"
+      - "8000:8080"
     depends_on:
       - db
     env_file: .env.owui
     restart: unless-stopped
+    networks:
+      - my_network
 
   db:
     container_name: db
     image: postgres:latest
+    restart: unless-stopped
     environment:
       POSTGRES_USER: llmproxy
       POSTGRES_PASSWORD: dbpassword9090
@@ -34,19 +40,45 @@ services:
     volumes:
       - ./pgdata:/var/lib/postgresql/data:rw
       - ./initdb.d:/docker-entrypoint-initdb.d
+    networks:
+      - my_network
 
   redis: 
     container_name: redis
     image: redis:latest
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    networks:
+      - my_network
+  
+  searxng:
+    container_name: searxng
+    image: docker.io/searxng/searxng:latest
     restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_BASE_URL: http://localhost/
+      UWSGI_WORKERS: ${SEARXNG_UWSGI_WORKERS:-4}
+      UWSGI_THREADS: ${SEARXNG_UWSGI_THREADS:-4}
+    cap_drop: ['ALL']
+    cap_add: ['CHOWN', 'SETGID', 'SETUID']
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    networks:
+      - my_network
 
 volumes:
-  litellm: {}
-  open-webui: {}
-  pgdata: {}
+  litellm:
+  open-webui:
+  pgdata:
 
 networks:
-  default:
+  my_network:
     driver: bridge
