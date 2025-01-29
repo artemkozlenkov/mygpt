@@ -16,7 +16,7 @@ services:
 
   openwebui:
     container_name: webui
-    image: ghcr.io/open-webui/open-webui:0.5.4
+    image: ghcr.io/open-webui/open-webui:latest
     volumes:
       - open-webui:/app/backend/data
     ports:
