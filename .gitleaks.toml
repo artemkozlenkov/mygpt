@@ -1,0 +1,11 @@
+title = "Gitleaks Configuration"
+
+[[rules]]
+description = "Detect passwords"
+regex = '''(?i)password\s*=\s*["']?([^"'\s]+)["']?'''
+tags = ["password", "secret"]
+
+[[rules]]
+description = "Detect API keys"
+regex = '''(?i)api_key\s*=\s*["']?([^"'\s]+)["']?'''
+tags = ["api-key", "secret"]
