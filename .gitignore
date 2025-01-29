@@ -46,3 +46,5 @@ Thumbs.db
 *.pem
 *.env*
 *./pgdata*
+./initdb.d/
+./pgdata/
