@@ -55,3 +55,4 @@ crash.log
 *.tfvars
 *.zip
 infra/terraform.tfvars
+terraform.tfvars
