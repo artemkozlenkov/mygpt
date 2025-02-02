@@ -11,3 +11,15 @@ model_list:
       api_base: os.environ/AZURE_API_BASE 
       api_key: os.environ/AZURE_API_KEY 
       api_version: 2024-08-01-preview
+  - model_name: o1-mini
+    litellm_params:
+      model: azure/o1-mini
+      api_base: os.environ/OPENAI_API_BASE_EAST_US2 
+      api_key: os.environ/OPENAI_API_KEY_EAST_US2
+      api_version: 2024-08-01-preview
+  - model_name: deepseek-r1
+    litellm_params:
+      model: deepseek/deepseek-r1
+      api_base: os.environ/DEEPSEEK_API_BASE 
+      api_key: os.environ/DEEPSEEK_API_KEY
+      api_version: 2024-08-01-preview
