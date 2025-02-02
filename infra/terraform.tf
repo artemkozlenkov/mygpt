@@ -7,10 +7,14 @@ terraform {
 
     }
   }
-  backend "azurerm" {
-    resource_group_name  = "rg-ml-production"
-    storage_account_name = "mlprodstorageacct"
-    container_name       = "terraform-state"
-    key                  = "terraform.tfstate"
+  # backend "azurerm" {
+  #   resource_group_name  = "rg-ml-production"
+  #   storage_account_name = "mlprodstorageacct"
+  #   container_name       = "terraform-state"
+  #   key                  = "terraform.tfstate"
+  # }
+
+  backend "local" {
+    
   }
 }

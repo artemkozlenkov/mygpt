@@ -19,7 +19,7 @@ model_list:
       api_version: 2024-08-01-preview
   - model_name: deepseek-r1
     litellm_params:
-      model: deepseek/deepseek-r1
-      api_base: os.environ/DEEPSEEK_API_BASE 
-      api_key: os.environ/DEEPSEEK_API_KEY
+      model: deepseek/deepseek-r1-fxask
+      api_base: os.environ/AZURE_DEEPSEEK_BASE_URL
+      api_key: os.environ/AZURE_DEEPSEEK_API_KEY
       api_version: 2024-08-01-preview
