@@ -26,11 +26,9 @@ crash.log
 *.tfvars
 *.zip
 
-# VS Code
+# IDEs
 .vscode/
 .history/
-
-# JetBrains IDEs
 .idea/
 *.iml
 
@@ -48,3 +46,12 @@ Thumbs.db
 *./pgdata*
 ./initdb.d/
 ./pgdata/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+crash.log
+*.tfvars
+*.zip
+infra/terraform.tfvars
