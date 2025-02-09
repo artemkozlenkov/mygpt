@@ -1,25 +1,26 @@
+litellm_settings:
+    drop_params: true
+
 model_list:
-  - model_name: gpt-4o-mini
-    litellm_params:
-      model: azure/gpt-4o-mini
-      api_base: os.environ/AZURE_API_BASE 
-      api_key: os.environ/AZURE_API_KEY 
-      api_version: 2024-08-01-preview
   - model_name: gpt-4o
     litellm_params:
       model: azure/gpt-4o
       api_base: os.environ/AZURE_API_BASE 
-      api_key: os.environ/AZURE_API_KEY 
+      api_key: os.environ/AZURE_API_KEY
+      api_version: 2024-08-01-preview
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: azure/gpt-4o-mini
+      api_base: os.environ/AZURE_API_BASE 
+      api_key: os.environ/AZURE_API_KEY
       api_version: 2024-08-01-preview
   - model_name: o1-mini
     litellm_params:
       model: azure/o1-mini
-      api_base: os.environ/OPENAI_API_BASE_EAST_US2 
-      api_key: os.environ/OPENAI_API_KEY_EAST_US2
+      api_base: os.environ/AZURE_API_BASE 
+      api_key: os.environ/AZURE_API_KEY
       api_version: 2024-08-01-preview
-  - model_name: deepseek-r1
+  - model_name: gemini-2.0-flash
     litellm_params:
-      model: deepseek/deepseek-r1-fxask
-      api_base: os.environ/AZURE_DEEPSEEK_BASE_URL
-      api_key: os.environ/AZURE_DEEPSEEK_API_KEY
-      api_version: 2024-08-01-preview
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
