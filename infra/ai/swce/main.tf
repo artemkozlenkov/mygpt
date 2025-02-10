@@ -19,33 +19,33 @@ resource "azurerm_cognitive_account" "this" {
 locals {
   cognitive_deployments = [
     {
-      name             = "gpt-4o"
-      version          = "2024-11-20"
-      sku_capacity     = 100
-      upgrade_option   = null
-      rai_policy_name  = "Microsoft.DefaultV2"
+      name            = "gpt-4o"
+      version         = "2024-11-20"
+      sku_capacity    = 100
+      upgrade_option  = null
+      rai_policy_name = "Microsoft.DefaultV2"
     },
     {
-      name             = "gpt-4o-mini"
-      version          = "2024-07-18"
-      sku_capacity     = 1001
-      upgrade_option   = "OnceCurrentVersionExpired"
-      rai_policy_name  = "Microsoft.DefaultV2"
+      name            = "gpt-4o-mini"
+      version         = "2024-07-18"
+      sku_capacity    = 1001
+      upgrade_option  = "OnceCurrentVersionExpired"
+      rai_policy_name = "Microsoft.DefaultV2"
     },
     {
-      name             = "o1-mini"
-      version          = "2024-09-12"
-      sku_capacity     = 100
-      upgrade_option   = "OnceCurrentVersionExpired"
-      rai_policy_name  = "Microsoft.DefaultV2"
+      name            = "o1-mini"
+      version         = "2024-09-12"
+      sku_capacity    = 100
+      upgrade_option  = "OnceCurrentVersionExpired"
+      rai_policy_name = "Microsoft.DefaultV2"
     },
     {
-      name             = "text-embedding-ada-002"
-      version          = "2"
-      sku_capacity     = 240
-      upgrade_option   = "NoAutoUpgrade"
-      rai_policy_name  = "Microsoft.DefaultV2"
-      sku_name         = "Standard"
+      name                       = "text-embedding-ada-002"
+      version                    = "2"
+      sku_capacity               = 240
+      upgrade_option             = "NoAutoUpgrade"
+      rai_policy_name            = "Microsoft.DefaultV2"
+      sku_name                   = "Standard"
       dynamic_throttling_enabled = true
     }
   ]
@@ -79,12 +79,12 @@ resource "azurerm_cognitive_deployment" "deployments" {
 }
 
 output "cognitive_account_api_base" {
-  value = azurerm_cognitive_account.this.endpoint
+  value       = azurerm_cognitive_account.this.endpoint
   description = "The base URL for the Azure Cognitive Services API."
 }
 
 output "cognitive_account_api_key" {
-  value     = azurerm_cognitive_account.this.primary_access_key
-  sensitive = true
+  value       = azurerm_cognitive_account.this.primary_access_key
+  sensitive   = true
   description = "The API key for the Azure Cognitive Services account."
 }
