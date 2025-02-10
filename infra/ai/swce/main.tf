@@ -1,14 +1,14 @@
-resource "azurerm_resource_group" "res-0" {
+resource "azurerm_resource_group" "this" {
   location = "swedencentral"
   name     = "rg-softawebit-ai-swce"
 }
 
-resource "azurerm_cognitive_account" "res-1" {
+resource "azurerm_cognitive_account" "this" {
   custom_subdomain_name = "softawebit-openai"
   kind                  = "OpenAI"
   location              = "swedencentral"
   name                  = "softawebit-openai"
-  resource_group_name   = azurerm_resource_group.res-0.name
+  resource_group_name   = azurerm_resource_group.this.name
   sku_name              = "S0"
 
   network_acls {
@@ -53,7 +53,7 @@ locals {
 resource "azurerm_cognitive_deployment" "deployments" {
   for_each = { for idx, deployment in local.cognitive_deployments : deployment.name => deployment }
 
-  cognitive_account_id = azurerm_cognitive_account.res-1.id
+  cognitive_account_id = azurerm_cognitive_account.this.id
   name                 = each.value.name
   rai_policy_name      = each.value.rai_policy_name
 
@@ -84,6 +84,17 @@ resource "azurerm_cognitive_deployment" "deployments" {
   }
 
   depends_on = [
-    azurerm_cognitive_account.res-1,
+    azurerm_cognitive_account.this,
   ]
+}
+
+output "cognitive_account_api_base" {
+  value = azurerm_cognitive_account.this.endpoint
+  description = "The base URL for the Azure Cognitive Services API."
+}
+
+output "cognitive_account_api_key" {
+  value     = azurerm_cognitive_account.this.primary_access_key
+  sensitive = true
+  description = "The API key for the Azure Cognitive Services account."
 }
