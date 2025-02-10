@@ -4,10 +4,10 @@ resource "azurerm_resource_group" "this" {
 }
 
 resource "azurerm_cognitive_account" "this" {
-  custom_subdomain_name = "softawebit-openai"
+  custom_subdomain_name = "softawebit-openai-swce"
   kind                  = "OpenAI"
   location              = "swedencentral"
-  name                  = "softawebit-openai"
+  name                  = "softawebit-openai-swce"
   resource_group_name   = azurerm_resource_group.this.name
   sku_name              = "S0"
 
@@ -45,6 +45,7 @@ locals {
       sku_capacity     = 240
       upgrade_option   = "NoAutoUpgrade"
       rai_policy_name  = "Microsoft.DefaultV2"
+      sku_name         = "Standard"
       dynamic_throttling_enabled = true
     }
   ]
@@ -65,23 +66,12 @@ resource "azurerm_cognitive_deployment" "deployments" {
 
   sku {
     capacity = each.value.sku_capacity
-    name     = "GlobalStandard"
+    name     = try(each.value.sku_name, "GlobalStandard")
   }
 
-  # Conditionally set properties if defined
-  dynamic "version_upgrade_option" {
-    for_each = [for v in [each.value.upgrade_option] : v if v != null]
-    content {
-      version_upgrade_option = version_upgrade_option.value
-    }
-  }
+  version_upgrade_option = "OnceNewDefaultVersionAvailable"
 
-  dynamic "dynamic_throttling_enabled" {
-    for_each = [for v in [each.value.dynamic_throttling_enabled] : v if v != null]
-    content {
-      dynamic_throttling_enabled = dynamic_throttling_enabled.value
-    }
-  }
+  dynamic_throttling_enabled = false
 
   depends_on = [
     azurerm_cognitive_account.this,
