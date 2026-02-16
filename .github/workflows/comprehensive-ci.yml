@@ -29,11 +29,11 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.0
+          terraform_version: 1.10.4
 
       - name: Install terraform-docs
         run: |
-          wget -qO- https://github.com/hashicorp/terraform-docs/releases/download/v0.16.0/terraform-docs_0.16.0_linux_amd64.tar.gz | tar xz
+          wget -qO- https://github.com/hashicorp/terraform-docs/releases/download/v0.18.0/terraform-docs_0.18.0_linux_amd64.tar.gz | tar xz
           sudo mv terraform-docs /usr/local/bin/
 
       - name: Terraform Format Check
@@ -65,10 +65,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Validate Docker Compose
-        run: docker compose -f compose.yml config --quiet
+        run: docker compose -f compose.yml config --quiet --env-file .env.litellm.example
 
       - name: Check Docker Compose syntax
-        run: docker compose -f compose.yml config --quiet
+        run: docker compose -f compose.yml config --quiet --env-file .env.litellm.example
 
   pre-commit:
     name: Pre-commit Hooks Validation
