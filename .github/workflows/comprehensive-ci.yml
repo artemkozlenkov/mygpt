@@ -33,8 +33,10 @@ jobs:
 
       - name: Install terraform-docs
         run: |
-          wget -qO- https://github.com/hashicorp/terraform-docs/releases/download/v0.18.0/terraform-docs_0.18.0_linux_amd64.tar.gz | tar xz
+          wget -qO terraform-docs.tar.gz https://github.com/hashicorp/terraform-docs/releases/download/v0.18.0/terraform-docs_0.18.0_linux_amd64.tar.gz
+          tar xzf terraform-docs.tar.gz
           sudo mv terraform-docs /usr/local/bin/
+          rm terraform-docs.tar.gz
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
@@ -65,10 +67,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Validate Docker Compose
-        run: docker compose -f compose.yml config --quiet --env-file .env.litellm.example
+        run: docker compose -f compose.yml config --quiet
 
       - name: Check Docker Compose syntax
-        run: docker compose -f compose.yml config --quiet --env-file .env.litellm.example
+        run: docker compose -f compose.yml config --quiet
 
   pre-commit:
     name: Pre-commit Hooks Validation

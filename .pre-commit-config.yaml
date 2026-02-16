@@ -6,3 +6,5 @@ repos:
       - id: terraform_validate
       - id: terraform_tflint
       - id: terraform_docs
+    additional_dependencies:
+      - "terraform-docs>=0.18.0"
