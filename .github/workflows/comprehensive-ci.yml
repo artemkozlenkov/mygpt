@@ -31,12 +31,11 @@ jobs:
         with:
           terraform_version: 1.10.4
 
-      - name: Install terraform-docs
-        run: |
-          wget -qO terraform-docs.tar.gz https://github.com/hashicorp/terraform-docs/releases/download/v0.18.0/terraform-docs_0.18.0_linux_amd64.tar.gz
-          tar xzf terraform-docs.tar.gz
-          sudo mv terraform-docs /usr/local/bin/
-          rm terraform-docs.tar.gz
+      - name: Run terraform-docs
+        uses: terraform-docs/tfdocs-py-action@main
+        with:
+          working-dir: infra
+          format: markdown
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
@@ -52,9 +51,6 @@ jobs:
       - name: Terraform Lint
         run: terraform fmt -check -recursive
         working-directory: infra
-
-      - name: Terraform Docs Check
-        run: terraform-docs markdown ./infra > /dev/null
 
   docker:
     name: Docker Compose Validation
@@ -87,10 +83,16 @@ jobs:
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.0
+          terraform_version: 1.10.4
 
       - name: Install pre-commit
         run: pip install pre-commit
+
+      - name: Run terraform-docs
+        uses: terraform-docs/tfdocs-py-action@main
+        with:
+          working-dir: infra
+          format: markdown
 
       - name: Run pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure
