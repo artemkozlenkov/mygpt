@@ -31,12 +31,6 @@ jobs:
         with:
           terraform_version: 1.10.4
 
-      - name: Run terraform-docs
-        uses: terraform-docs/tfdocs-py-action@main
-        with:
-          working-dir: infra
-          format: markdown
-
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
@@ -87,12 +81,6 @@ jobs:
 
       - name: Install pre-commit
         run: pip install pre-commit
-
-      - name: Run terraform-docs
-        uses: terraform-docs/tfdocs-py-action@main
-        with:
-          working-dir: infra
-          format: markdown
 
       - name: Run pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure
