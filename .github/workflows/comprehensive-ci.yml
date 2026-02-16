@@ -57,10 +57,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Validate Docker Compose
-        run: docker compose -f compose.yml config --quiet
+        run: docker compose -f compose.yml config --quiet --env-file .env.litellm.example
 
       - name: Check Docker Compose syntax
-        run: docker compose -f compose.yml config --quiet
+        run: docker compose -f compose.yml config --quiet --env-file .env.litellm.example
 
   pre-commit:
     name: Pre-commit Hooks Validation
