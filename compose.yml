@@ -9,7 +9,7 @@ services:
       - db
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-    env_file: .env.litellm
+    # env_file: .env.litellm
     command: ["--config", "/app/config.yaml", "--detailed_debug"]
     networks:
       - my_network
@@ -23,7 +23,7 @@ services:
       - "8000:8080"
     depends_on:
       - db
-    env_file: .env.owui
+    # env_file: .env.owui
     restart: unless-stopped
     networks:
       - my_network
