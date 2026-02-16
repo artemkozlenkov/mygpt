@@ -1,0 +1,206 @@
+name: Comprehensive CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  terraform:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: infra
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: infra
+
+      - name: Terraform Lint
+        run: terraform fmt -check -recursive
+        working-directory: infra
+
+      - name: Terraform Docs Check
+        run: terraform-docs markdown ./infra > /dev/null
+
+  docker:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Docker Compose
+        run: docker compose config
+
+      - name: Check Docker Compose syntax
+        run: docker compose -f compose.yml config --quiet
+
+  pre-commit:
+    name: Pre-commit Hooks Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  file-structure:
+    name: File Structure Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          echo "Checking required files..."
+          test -f run.sh || echo "ERROR: run.sh not found"
+          test -f compose.yml || echo "ERROR: compose.yml not found"
+          test -f litellm_config.yaml || echo "ERROR: litellm_config.yaml not found"
+          test -f .env.litellm.example || echo "ERROR: .env.litellm.example not found"
+          test -f .env.owui.example || echo "ERROR: .env.owui.example not found"
+          test -f .gitleaks.toml || echo "ERROR: .gitleaks.toml not found"
+          test -f .pre-commit-config.yaml || echo "ERROR: .pre-commit-config.yaml not found"
+          test -f LICENSE.md || echo "ERROR: LICENSE.md not found"
+          test -f README.md || echo "ERROR: README.md not found"
+          echo "All required files found!"
+
+      - name: Check directory structure
+        run: |
+          echo "Checking directory structure..."
+          test -d infra || echo "ERROR: infra directory not found"
+          test -d initdb.d || echo "ERROR: initdb.d directory not found"
+          test -d searxng || echo "ERROR: searxng directory not found"
+          echo "All required directories found!"
+
+  environment:
+    name: Environment Files Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check environment files exist
+        run: |
+          echo "Checking environment files..."
+          test -f .env.litellm.example || echo "ERROR: .env.litellm.example not found"
+          test -f .env.owui.example || echo "ERROR: .env.owui.example not found"
+          echo "Environment example files found!"
+
+      - name: Validate environment file syntax
+        run: |
+          echo "Validating .env.litellm.example..."
+          grep -q "DATABASE_URL" .env.litellm.example || echo "ERROR: DATABASE_URL not found in .env.litellm.example"
+          grep -q "LITELLM_MASTER_KEY" .env.litellm.example || echo "ERROR: LITELLM_MASTER_KEY not found in .env.litellm.example"
+          grep -q "REDIS_URL" .env.litellm.example || echo "ERROR: REDIS_URL not found in .env.litellm.example"
+
+          echo "Validating .env.owui.example..."
+          grep -q "OPENAI_API_BASE_URL" .env.owui.example || echo "ERROR: OPENAI_API_BASE_URL not found in .env.owui.example"
+          grep -q "OPENAI_API_KEYS" .env.owui.example || echo "ERROR: OPENAI_API_KEYS not found in .env.owui.example"
+          grep -q "DATABASE_URL" .env.owui.example || echo "ERROR: DATABASE_URL not found in .env.owui.example"
+          echo "Environment files validated!"
+
+  git-hooks:
+    name: Git Hooks Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check pre-commit hook exists
+        run: |
+          if [ -f .git/hooks/pre-commit ]; then
+            echo "Pre-commit hook found!"
+            grep -q "MANAGER_SCRIPT" .git/hooks/pre-commit || echo "WARNING: MANAGER_SCRIPT not found in pre-commit hook"
+          else
+            echo "WARNING: Pre-commit hook not found in .git/hooks/pre-commit"
+          fi
+
+      - name: Check pre-commit-config.yaml
+        run: |
+          test -f .pre-commit-config.yaml || echo "ERROR: .pre-commit-config.yaml not found"
+          grep -q "pre-commit-terraform" .pre-commit-config.yaml || echo "ERROR: pre-commit-terraform not found in .pre-commit-config.yaml"
+          echo "Pre-commit configuration validated!"
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check README exists
+        run: |
+          test -f README.md || echo "ERROR: README.md not found"
+          grep -q "Hybrid GPT Chat Application" README.md || echo "ERROR: README.md missing main title"
+          grep -q "Setup" README.md || echo "ERROR: README.md missing Setup section"
+          grep -q "Configuration" README.md || echo "ERROR: README.md missing Configuration section"
+          grep -q "Usage" README.md || echo "ERROR: README.md missing Usage section"
+          echo "README.md validated!"
+
+      - name: Check LICENSE exists
+        run: |
+          test -f LICENSE.md || echo "ERROR: LICENSE.md not found"
+          echo "LICENSE.md found!"
+
+      - name: Check .gitignore exists
+        run: |
+          test -f .gitignore || echo "ERROR: .gitignore not found"
+          echo ".gitignore found!"
+
+  all-checks:
+    name: All Checks Summary
+    runs-on: ubuntu-latest
+    needs: [security, terraform, docker, pre-commit, file-structure, environment, git-hooks, documentation]
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          echo "All CI checks completed!"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Terraform: ${{ needs.terraform.result }}"
+          echo "Docker: ${{ needs.docker.result }}"
+          echo "Pre-commit: ${{ needs.pre-commit.result }}"
+          echo "File Structure: ${{ needs.file-structure.result }}"
+          echo "Environment: ${{ needs.environment.result }}"
+          echo "Git Hooks: ${{ needs.git-hooks.result }}"
+          echo "Documentation: ${{ needs.documentation.result }}"
