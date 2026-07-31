@@ -67,11 +67,12 @@ This application is built with a multicloud hybrid architecture, allowing you to
 *   **`Makefile`:** The management Makefile (use `make` to see available targets).
 *   **`compose.yml`:** Defines the services for the LLM stack.
 *   **`.env.example`:** Example environment file (copy to `.env` and fill in your API keys).
-*   **`.env`:** Environment configuration for both LiteLLM and OpenWebUI.
-*   **`nginx.conf`:** Nginx configuration (optional, removed from compose by default).
+*   **`.env`:** Environment configuration for both LiteLLM and OpenWebUI (git-ignored).
+*   **`litellm_config.yaml`:** LiteLLM model list (Azure AI Foundry + xAI).
 *   **`initdb.d/`:** PostgreSQL initialization scripts.
 *   **`searxng/`:** SearxNG configuration files.
 *   **`.gitleaks.toml`:** Gitleaks configuration.
+*   **`.githooks/`:** Git hooks (pre-commit secret scan).
 
 ## Quick Start on a New Machine
 
@@ -289,6 +290,8 @@ Both services read from a single `.env` file. Key settings:
     *   **`GEMINI_API_KEY`:** Google Gemini models.
     *   **`MOONSHOT_API_KEY`:** Moonshot/Kimi models via `https://api.moonshot.cn/v1`. Register at https://platform.moonshot.cn.
 *   **`DEFAULT_MODELS`:** The model pre-selected in OpenWebUI (e.g. `gpt-5.6-luna`).
+*   **`ENABLE_EVALUATION_ARENA_MODELS`:** Set to `False` to hide the OpenWebUI
+    Model Arena (a virtual model used for A/B model comparison).
 *   **`DEFAULT_PROMPT_SUGGESTIONS`:** JSON array of the suggestion chips shown
     in the OpenWebUI chat input (email, proofread, set tone, grammar, fact-check,
     web search, deep analysis). Edit the `title`/`content` to your own prompts.
@@ -343,8 +346,7 @@ cp .env.example .env
 
 The SearxNG service includes configuration files:
 
-*   **`settings.yml`:** Main SearxNG settings.
-*   **`limiter.toml`:** Rate limiting configuration.
+*   **`settings.yml`:** Main SearxNG settings (rate limiter is disabled).
 *   **`uwsgi.ini`:** uWSGI configuration for performance tuning.
 
 ### PostgreSQL Initialization (`initdb.d/`)
@@ -472,8 +474,8 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
 *   **Database changes not applied**: To re-run `initdb.d/initdb.sql`, stop the stack
     (`make stop`), delete `./pgdata` (⚠️ destroys all data), then `make start`.
 *   **Gitleaks false positives**: Add exceptions to the `allowlist` section of `.gitleaks.toml`.
-*   **SearxNG misbehaving**: Check `searxng/settings.yml` — ensure `secret_key` is unique
-    and the `limiter` is configured correctly.
+*   **SearxNG misbehaving**: Check `searxng/settings.yml` — ensure `SEARXNG_SECRET`
+    is set in `.env` (it overrides the placeholder `secret_key` in the file).
 *   **Check logs for any service**: `docker compose -f compose.yml logs <service>`
     (`litellm`, `openwebui`, `db`, `redis`, `searxng`).
 
