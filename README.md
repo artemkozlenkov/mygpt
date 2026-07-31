@@ -154,10 +154,11 @@ whose keys you set. At minimum, set **one** of these in `.env`:
 | **Google Gemini** | `GEMINI_API_KEY` | https://aistudio.google.com |
 | **Moonshot / Kimi** | `MOONSHOT_API_KEY` | https://platform.moonshot.cn |
 
-> **Azure AI Foundry** is used for `gpt-5.6-luna`, `grok-4.3` (chat) and
-> `text-embedding-3-large` (RAG embeddings). Set `AZURE_AI_API_BASE` (e.g.
+> **Azure AI Foundry** is used for `gpt-5.6-luna` (chat) and `text-embedding-3-large`
+> (RAG embeddings). Set `AZURE_AI_API_BASE` (e.g.
 > `https://foundry-ai.<region>.services.ai.azure.com`) and `AZURE_API_VERSION`
 > (e.g. `2024-05-01-preview`) — the deployments must exist in your Foundry project.
+> **xAI** is used for `grok-4.5` directly (key at https://console.x.ai).
 
 ### 5. Start the stack
 
@@ -281,8 +282,10 @@ Both services read from a single `.env` file. Key settings:
     (also set as `OPENAI_API_KEYS` so OpenWebUI authenticates against it).
 *   **`REDIS_URL`:** The Redis connection string (non-TLS, as Redis has no SSL configured).
 *   **Provider API keys** — set at least one for the models you want:
-    *   **`AZURE_AI_API_KEY` / `AZURE_AI_API_BASE`:** Azure AI Foundry — `gpt-5.6-luna`,
-        `grok-4.3` and the `text-embedding-3-large` embeddings. Key from https://ai.azure.com.
+    *   **`AZURE_AI_API_KEY` / `AZURE_AI_API_BASE`:** Azure AI Foundry — `gpt-5.6-luna`
+        and the `text-embedding-3-large` embeddings. Key from https://ai.azure.com.
+    *   **`XAI_API_KEY`:** Grok via the xAI provider directly (`grok-4.5`).
+        Key from https://console.x.ai.
     *   **`GEMINI_API_KEY`:** Google Gemini models.
     *   **`MOONSHOT_API_KEY`:** Moonshot/Kimi models via `https://api.moonshot.cn/v1`. Register at https://platform.moonshot.cn.
 *   **`DEFAULT_MODELS`:** The model pre-selected in OpenWebUI (e.g. `gpt-5.6-luna`).
@@ -304,7 +307,7 @@ Configure the LLM models that LiteLLM will route requests to:
 *   **`model_list`:** Define the models you want to use, including:
     *   **`model_name`:** The name of the model as it will appear in OpenWebUI.
     *   **`litellm_params`:** The actual model configuration, including:
-        *   **`model`:** The model identifier (e.g., `azure_ai/gpt-5.6-luna`, `azure_ai/grok-4.3`).
+        *   **`model`:** The model identifier (e.g., `azure_ai/gpt-5.6-luna`, `xai/grok-4.5`).
         *   **`api_base`:** The API base URL (for Azure, Moonshot).
         *   **`api_key`:** The API key.
         *   **`api_version`:** The API version (for Azure).
@@ -312,7 +315,8 @@ Configure the LLM models that LiteLLM will route requests to:
 
 The config includes models out of the box:
 
-*   **Azure AI Foundry chat:** `gpt-5.6-luna`, `grok-4.3` (via `azure_ai/`)
+*   **Azure AI Foundry chat:** `gpt-5.6-luna` (via `azure_ai/`)
+*   **xAI (direct):** `grok-4.5` (via `xai/`)
 *   **Azure AI Foundry embeddings (RAG):** `text-embedding-3-large`
 
 > **Model IDs matter:** Grok IDs are `grok-4.3` / `grok-4.5` **with a dot** —
