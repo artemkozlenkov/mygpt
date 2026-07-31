@@ -98,7 +98,7 @@ jobs:
         run: |
           test -f README.md || echo "ERROR: README.md not found"
           grep -q "Hybrid GPT Chat Application" README.md || echo "ERROR: README.md missing main title"
-          grep -q "Quick Start on a Fresh VM" README.md || echo "ERROR: README.md missing Quick Start section"
+          grep -q "Quick Start on a New Machine" README.md || echo "ERROR: README.md missing Quick Start section"
           grep -q "Configuration" README.md || echo "ERROR: README.md missing Configuration section"
           grep -q "Usage" README.md || echo "ERROR: README.md missing Usage section"
           echo "README.md validated!"

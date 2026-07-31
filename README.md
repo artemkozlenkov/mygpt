@@ -73,12 +73,34 @@ This application is built with a multicloud hybrid architecture, allowing you to
 *   **`searxng/`:** SearxNG configuration files.
 *   **`.gitleaks.toml`:** Gitleaks configuration.
 
-## Quick Start on a Fresh VM
+## Quick Start on a New Machine
 
 These steps bring up the whole stack (OpenWebUI + LiteLLM + PostgreSQL + Redis +
-SearxNG) on a brand-new Ubuntu VM (tested on Ubuntu 24.04). Total time: ~10 minutes.
+SearxNG) on a brand-new machine — macOS (Docker Desktop) or Linux (Ubuntu 24.04
+VM/server). Total time: ~10 minutes.
+
+### What you need before you begin
+
+- [ ] **Docker** with Docker Compose v2 (install steps below)
+- [ ] **API key** for at least one LLM provider — DeepSeek or xAI/Grok recommended
+- [ ] **Host ports `8000`, `4000`, `8080`, `5433`, `6380` free**, or edit the
+      port mappings in `compose.yml` (see note on ports below)
 
 ### 1. Install Docker
+
+#### macOS (Docker Desktop)
+
+1. Download and install Docker Desktop from
+   https://www.docker.com/products/docker-desktop/
+2. Launch Docker Desktop and wait for the whale icon to stop animating
+   (Docker daemon must be running before `docker` commands work).
+3. Verify:
+
+   ```bash
+   docker --version && docker compose version
+   ```
+
+#### Linux (Ubuntu 24.04)
 
 ```bash
 # Install prerequisites
@@ -176,6 +198,12 @@ Or use the Makefile helpers: `make open-ui`, `make open-proxy`.
 > **6380** (not the defaults 5432/6379) so the stack can run alongside other
 > projects that use the standard ports. Inside the Docker network the services
 > still use `db:5432` and `redis:6379` — only the host-facing mappings differ.
+>
+> **If `make start` reports "port is already allocated":** another service on
+> the machine holds a port. Find it with `lsof -i :5432` (macOS/Linux) and either
+> stop that service or remap the host port in `compose.yml` (e.g. change
+> `"5433:5432"` to `"5434:5432"`). The internal addresses never change — only
+> the left-hand side (host port) matters.
 
 ### Full command reference
 
