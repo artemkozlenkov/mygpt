@@ -42,7 +42,7 @@ This application is built with a multicloud hybrid architecture, allowing you to
 ### Component Relationships:
 
 *   **OpenWebUI <-> LiteLLM:** OpenWebUI sends user prompts to LiteLLM and displays the responses. It leverages LiteLLM's API to access different LLMs and manage the interaction flow.
-*   **LiteLLM <-> LLM Providers:** LiteLLM routes the requests to configured LLM providers (OpenAI, Azure, Gemini, DeepSeek, Moonshot). It handles the specific authentication and API requirements of each provider.
+*   **LiteLLM <-> LLM Providers:** LiteLLM routes the requests to configured LLM providers (Azure AI Foundry, Gemini, Moonshot). It handles the specific authentication and API requirements of each provider.
 *   **OpenWebUI & LiteLLM -> PostgreSQL:** Both services connect to the same PostgreSQL instance but use separate databases (`litellm` and `openwebui`).
 *   **LiteLLM -> Redis:** LiteLLM caches data in Redis to improve response times and reduce API usage costs.
 *   **OpenWebUI -> SearxNG:** When enabled (via `.env`), OpenWebUI queries SearxNG to enrich prompts with relevant web search results.
@@ -82,7 +82,7 @@ VM/server). Total time: ~10 minutes.
 ### What you need before you begin
 
 - [ ] **Docker** with Docker Compose v2 (install steps below)
-- [ ] **API key** for at least one LLM provider — DeepSeek or xAI/Grok recommended
+- [ ] **API key** for at least one LLM provider — Azure AI Foundry recommended
 - [ ] **Host ports `8000`, `4000`, `8080`, `5433`, `6380` free**, or edit the
       port mappings in `compose.yml` (see note on ports below)
 
@@ -150,12 +150,11 @@ whose keys you set. At minimum, set **one** of these in `.env`:
 
 | Provider | Variable | Get a key at |
 |----------|----------|--------------|
-| **DeepSeek** (recommended, cheap) | `DEEPSEEK_API_KEY` | https://platform.deepseek.com |
 | **Azure AI Foundry** (chat, Grok, embeddings) | `AZURE_AI_API_KEY` + `AZURE_AI_API_BASE` | https://ai.azure.com |
 | **Google Gemini** | `GEMINI_API_KEY` | https://aistudio.google.com |
 | **Moonshot / Kimi** | `MOONSHOT_API_KEY` | https://platform.moonshot.cn |
 
-> **Azure AI Foundry** is used for `gpt-5.6-terra`, `grok-4.3` (chat) and
+> **Azure AI Foundry** is used for `gpt-5.6-luna`, `grok-4.3` (chat) and
 > `text-embedding-3-large` (RAG embeddings). Set `AZURE_AI_API_BASE` (e.g.
 > `https://foundry-ai.<region>.services.ai.azure.com`) and `AZURE_API_VERSION`
 > (e.g. `2024-05-01-preview`) — the deployments must exist in your Foundry project.
@@ -183,11 +182,11 @@ List the configured models and send a real chat request through LiteLLM:
 # List models (replace the key with your LITELLM_MASTER_KEY from .env)
 curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/models
 
-# Test a completion via DeepSeek
+# Test a completion via gpt-5.6-luna
 curl -s -X POST http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer <LITELLM_MASTER_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"Say hi"}]}'
+  -d '{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"Say hi"}]}'
 ```
 
 ### 7. Open the UI
@@ -282,12 +281,11 @@ Both services read from a single `.env` file. Key settings:
     (also set as `OPENAI_API_KEYS` so OpenWebUI authenticates against it).
 *   **`REDIS_URL`:** The Redis connection string (non-TLS, as Redis has no SSL configured).
 *   **Provider API keys** — set at least one for the models you want:
-    *   **`DEEPSEEK_API_KEY`:** DeepSeek models via `https://api.deepseek.com/v1`. Register at https://platform.deepseek.com.
-    *   **`XAI_API_KEY`:** Grok models via `https://api.x.ai/v1`. Register at https://console.x.ai.
-    *   **`AZURE_API_KEY` / `AZURE_API_BASE`:** Azure OpenAI models.
+    *   **`AZURE_AI_API_KEY` / `AZURE_AI_API_BASE`:** Azure AI Foundry — `gpt-5.6-luna`,
+        `grok-4.3` and the `text-embedding-3-large` embeddings. Key from https://ai.azure.com.
     *   **`GEMINI_API_KEY`:** Google Gemini models.
     *   **`MOONSHOT_API_KEY`:** Moonshot/Kimi models via `https://api.moonshot.cn/v1`. Register at https://platform.moonshot.cn.
-*   **`DEFAULT_MODELS`:** The model pre-selected in OpenWebUI (e.g. `deepseek-chat`).
+*   **`DEFAULT_MODELS`:** The model pre-selected in OpenWebUI (e.g. `gpt-5.6-luna`).
 *   **`DEFAULT_PROMPT_SUGGESTIONS`:** JSON array of the suggestion chips shown
     in the OpenWebUI chat input (email, proofread, set tone, grammar, fact-check,
     web search, deep analysis). Edit the `title`/`content` to your own prompts.
@@ -306,16 +304,15 @@ Configure the LLM models that LiteLLM will route requests to:
 *   **`model_list`:** Define the models you want to use, including:
     *   **`model_name`:** The name of the model as it will appear in OpenWebUI.
     *   **`litellm_params`:** The actual model configuration, including:
-        *   **`model`:** The model identifier (e.g., `azure/gpt-4o`, `gemini/gemini-2.0-flash`, `deepseek/deepseek-chat`).
-        *   **`api_base`:** The API base URL (for Azure, DeepSeek, Moonshot).
+        *   **`model`:** The model identifier (e.g., `azure_ai/gpt-5.6-luna`, `azure_ai/grok-4.3`).
+        *   **`api_base`:** The API base URL (for Azure, Moonshot).
         *   **`api_key`:** The API key.
         *   **`api_version`:** The API version (for Azure).
 *   **`litellm_settings`:** Global settings for LiteLLM.
 
 The config includes models out of the box:
 
-*   **DeepSeek:** `deepseek-chat` (OpenAI-compatible at `https://api.deepseek.com/v1`)
-*   **Azure AI Foundry chat:** `gpt-5.6-terra`, `grok-4.3` (via `azure_ai/`)
+*   **Azure AI Foundry chat:** `gpt-5.6-luna`, `grok-4.3` (via `azure_ai/`)
 *   **Azure AI Foundry embeddings (RAG):** `text-embedding-3-large`
 
 > **Model IDs matter:** Grok IDs are `grok-4.3` / `grok-4.5` **with a dot** —
@@ -427,9 +424,8 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
     pgvector extension for storing and querying embeddings. It is enabled on both
     databases automatically via `initdb.d/initdb.sql`.
 *   **Embedding Model:** Configure the embedding model in `.env`
-    (e.g. `text-embedding-ada-002`). Note: embeddings currently require an
-    OpenAI-compatible key; if you only have a DeepSeek/Grok key, chat works but
-    RAG document uploads may need an embedding provider.
+    (e.g. `text-embedding-3-large`, served via Azure AI Foundry). The embedding
+    deployment must exist in your Foundry project for RAG document uploads to work.
 *   **Web Search:** Enable web search by setting `ENABLE_RAG_WEB_SEARCH=True` in `.env`.
 
 ### Key steps for configuration
