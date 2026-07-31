@@ -151,10 +151,14 @@ whose keys you set. At minimum, set **one** of these in `.env`:
 | Provider | Variable | Get a key at |
 |----------|----------|--------------|
 | **DeepSeek** (recommended, cheap) | `DEEPSEEK_API_KEY` | https://platform.deepseek.com |
-| **xAI / Grok** | `XAI_API_KEY` | https://console.x.ai |
-| **Azure OpenAI** | `AZURE_API_KEY` + `AZURE_API_BASE` | https://portal.azure.com |
+| **Azure AI Foundry** (chat, Grok, embeddings) | `AZURE_AI_API_KEY` + `AZURE_AI_API_BASE` | https://ai.azure.com |
 | **Google Gemini** | `GEMINI_API_KEY` | https://aistudio.google.com |
 | **Moonshot / Kimi** | `MOONSHOT_API_KEY` | https://platform.moonshot.cn |
+
+> **Azure AI Foundry** is used for `gpt-5.6-terra`, `grok-4.3` (chat) and
+> `text-embedding-3-large` (RAG embeddings). Set `AZURE_AI_API_BASE` (e.g.
+> `https://foundry-ai.<region>.services.ai.azure.com`) and `AZURE_API_VERSION`
+> (e.g. `2024-05-01-preview`) — the deployments must exist in your Foundry project.
 
 ### 5. Start the stack
 
@@ -284,8 +288,16 @@ Both services read from a single `.env` file. Key settings:
     *   **`GEMINI_API_KEY`:** Google Gemini models.
     *   **`MOONSHOT_API_KEY`:** Moonshot/Kimi models via `https://api.moonshot.cn/v1`. Register at https://platform.moonshot.cn.
 *   **`DEFAULT_MODELS`:** The model pre-selected in OpenWebUI (e.g. `deepseek-chat`).
+*   **`DEFAULT_PROMPT_SUGGESTIONS`:** JSON array of the suggestion chips shown
+    in the OpenWebUI chat input (email, proofread, set tone, grammar, fact-check,
+    web search, deep analysis). Edit the `title`/`content` to your own prompts.
 
 > ⚠️ **Never commit `.env`** — it contains real API keys. It is git-ignored.
+>
+> ℹ️ **DB overrides env:** OpenWebUI stores these settings in its database on
+> first boot. After changing them in `.env`, restart the container and, if the
+> old values stick, update the corresponding `config` table rows:
+> `docker compose exec db psql -U llmproxy -d openwebui -c "UPDATE config SET value=... WHERE key='ui.prompt_suggestions';"`
 
 ### `litellm_config.yaml`
 
@@ -303,12 +315,13 @@ Configure the LLM models that LiteLLM will route requests to:
 The config includes models out of the box:
 
 *   **DeepSeek:** `deepseek-chat` (OpenAI-compatible at `https://api.deepseek.com/v1`)
-*   **xAI / Grok:** `grok-4.3`, `grok-4.5` (at `https://api.x.ai/v1`)
+*   **Azure AI Foundry chat:** `gpt-5.6-terra`, `grok-4.3` (via `azure_ai/`)
+*   **Azure AI Foundry embeddings (RAG):** `text-embedding-3-large`
 
 > **Model IDs matter:** Grok IDs are `grok-4.3` / `grok-4.5` **with a dot** —
-> `grok-4-3` returns a model-not-found error. Only models whose API key is set
-> in `.env` actually respond; add more models here as needed (LiteLLM supports
-> Azure, Gemini, OpenAI, Anthropic, and hundreds more via the `provider/model` prefix).
+> `grok-4-3` returns a model-not-found error. Only models whose key/deployment is
+> configured actually respond. Azure deployments must exist in your Foundry
+> project and match the names in `litellm_config.yaml`.
 
 To test a model after editing the config:
 
@@ -438,8 +451,8 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
     pgvector. Use the `pgvector/pgvector:pg18` image (already set in `compose.yml`).
 *   **No models appear in OpenWebUI**: Check `litellm_config.yaml` and confirm at least
     one provider key is set in `.env`; reload with `docker compose up -d litellm`.
-*   **`model not found` for Grok**: The IDs are `grok-4.3` and `grok-4.5` **with a dot**,
-    not a dash.
+*   **`model not found` for Grok**: The IDs are `grok-4.3` / `grok-4.5` **with a dot**,
+    not a dash. Via Azure Foundry, the deployment must exist under that name.
 *   **LiteLLM cannot call provider APIs**: Test a model directly:
     `curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/chat/completions ...`.
     Check the API endpoint and key.

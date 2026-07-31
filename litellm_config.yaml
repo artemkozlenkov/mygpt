@@ -7,13 +7,28 @@ model_list:
       model: deepseek/deepseek-chat
       api_key: os.environ/DEEPSEEK_API_KEY
       api_base: https://api.deepseek.com/v1
+
+  # Grok via Azure AI Foundry.
+  # api_base/api_key/api_version are read from AZURE_AI_API_BASE,
+  # AZURE_AI_API_KEY and AZURE_API_VERSION env vars (azure_ai provider native).
   - model_name: grok-4.3
     litellm_params:
-      model: xai/grok-4.3
-      api_key: os.environ/XAI_API_KEY
-      api_base: https://api.x.ai/v1
-  - model_name: grok-4.5
+      model: azure_ai/grok-4.3
+    model_info:
+      mode: chat
+      health_check_supports_max_tokens: false
+
+  # Azure AI Foundry chat deployment "gpt-5.6-terra"
+  - model_name: gpt-5.6-terra
     litellm_params:
-      model: xai/grok-4.5
-      api_key: os.environ/XAI_API_KEY
-      api_base: https://api.x.ai/v1
+      model: azure_ai/gpt-5.6-terra
+    model_info:
+      mode: chat
+      health_check_supports_max_tokens: false
+
+  # Azure AI Foundry embedding deployment "text-embedding-3-large" (RAG)
+  - model_name: text-embedding-3-large
+    litellm_params:
+      model: azure_ai/text-embedding-3-large
+    model_info:
+      mode: embedding
