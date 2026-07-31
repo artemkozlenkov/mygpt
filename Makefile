@@ -142,10 +142,16 @@ clean: ## Stop containers and remove volumes (WARNING: destroys database data)
 		echo "$(YELLOW)Aborted.$(NC)"; \
 	fi
 
+GITLEAKS_VERSION ?= v8.30.1
+
 .PHONY: gitleaks
-gitleaks: ## Run Gitleaks security scan
+gitleaks: ## Run Gitleaks security scan (local binary if present, else pinned Docker image)
 	@echo "$(BOLD)Running Gitleaks security scan...$(NC)"
-	docker run --rm -v "$(PWD):/src" -w /src gitleaks/gitleaks detect --source . -v
+	@if command -v gitleaks >/dev/null 2>&1; then \
+		gitleaks detect --source . --no-banner; \
+	else \
+		docker run --rm -v "$(PWD):/src" -w /src gitleaks/gitleaks:$(GITLEAKS_VERSION) detect --source .; \
+	fi
 	@echo "$(GREEN)✓ Scan complete.$(NC)"
 
 # ─── Convenience ──────────────────────────────────────────────────────────────

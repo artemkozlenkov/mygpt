@@ -354,7 +354,20 @@ The `initdb.d/` directory contains SQL scripts that run automatically when the P
 
 ### Gitleaks Configuration (`.gitleaks.toml`)
 
-The Gitleaks configuration scans for secrets and sensitive information in your codebase. It extends the default Gitleaks configuration and allows secrets in the `cmd/generate/config/rules` directory.
+Gitleaks scans for secrets in the working tree **and** git history. The config
+extends Gitleaks' default rules. The only allowlist entry is
+`searxng/settings.yml`, which historically contained the local SearxNG
+session-signing key (low risk, now moved to the `SEARXNG_SECRET` env var).
+
+**Pre-commit hook:** `.githooks/pre-commit` runs `gitleaks git --staged` on every
+commit and blocks commits that introduce secrets. Enable it in a fresh clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Run a full scan manually with `make gitleaks` (local binary if installed,
+otherwise a pinned Docker image).
 
 ## Usage
 

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Gitleaks pre-commit hook: blocks commits that introduce secrets.
+# Scans staged changes only (fast). Uses the local binary when available,
+# otherwise falls back to a pinned Docker image.
+#
+# Skip with:  git commit --no-verify
+
+if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+    # No commits yet (initial commit): scan everything that is staged.
+    GITLEAKS_SOURCE_ARGS="--staged --source ."
+else
+    GITLEAKS_SOURCE_ARGS="--staged"
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+    exec gitleaks git ${GITLEAKS_SOURCE_ARGS} --no-banner
+else
+    exec docker run --rm -v "$(pwd):/src" -w /src gitleaks/gitleaks:v8.30.1 git ${GITLEAKS_SOURCE_ARGS} --no-banner
+fi

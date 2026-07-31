@@ -2,7 +2,8 @@
 use_default_settings: true
 server:
   # base_url is defined in the SEARXNG_BASE_URL environment variable, see .env and docker-compose.yml
-  secret_key: "CHANGE_THIS_SECRET_KEY_IN_PRODUCTION"  # change this!
+  # secret_key is overridden by the SEARXNG_SECRET environment variable (see .env)
+  secret_key: "CHANGE_THIS_SECRET_KEY_IN_PRODUCTION"  # overridden by SEARXNG_SECRET env
   limiter: false
   image_proxy: true
   port: 8888

@@ -1,12 +1,17 @@
-# This is NOT the default gitleaks config. The default gitleaks config is located 
-# here: https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
-# This gitleaks config extends the default config and ignores secrets located in the `cmd/generate/config/rules`
+# Gitleaks configuration for mygpt.
+# Extends the default rule set (https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml).
+title = "Gitleaks config for mygpt"
 
-title = "Gitleaks development"
 [extend]
 useDefault = true
 
+# Allowlist
+#
+# searxng/settings.yml historically contained the local SearxNG session-signing
+# key (server.secret_key). It is NOT a cloud credential — it only signs local
+# SearxNG session cookies for the self-hosted instance. The key now lives in the
+# git-ignored .env file (SEARXNG_SECRET); the tracked file holds a placeholder.
 [allowlist]
 paths = [
-  '''(^|/)cmd/generate/config/rules''',
+  '''searxng/settings.yml''',
 ]
