@@ -1,6 +1,6 @@
-# Hybrid GPT Chat Application with Terraform Management
+# Hybrid GPT Chat Application
 
-This repository provides a comprehensive setup for a hybrid GPT chat application designed for personal use, leveraging AI models from multiple cloud providers. It combines a user-friendly frontend (OpenWebUI), a robust proxy (LiteLLM), and supporting services (PostgreSQL, Redis, SearxNG) to deliver a high-performance, customizable AI experience. It also includes a script (`run.sh`) to manage Docker Compose containers and a Git pre-commit hook to enforce Terraform code quality.
+This repository provides a comprehensive setup for a hybrid GPT chat application designed for personal use, leveraging AI models from multiple cloud providers. It combines a user-friendly frontend (OpenWebUI), a robust proxy (LiteLLM), and supporting services (PostgreSQL, Redis, SearxNG) to deliver a high-performance, customizable AI experience.
 
 ## Architectural Overview: Multicloud Hybrid AI
 
@@ -42,19 +42,17 @@ This application is built with a multicloud hybrid architecture, allowing you to
 ### Component Relationships:
 
 *   **OpenWebUI <-> LiteLLM:** OpenWebUI sends user prompts to LiteLLM and displays the responses. It leverages LiteLLM's API to access different LLMs and manage the interaction flow.
-*   **LiteLLM <-> LLM Providers:** LiteLLM routes the requests to configured LLM providers (OpenAI, Azure, Gemini). It handles the specific authentication and API requirements of each provider.
-*   **OpenWebUI & LiteLLM -> PostgreSQL:** OpenWebUI stores user information and chat histories in the PostgreSQL database, while LiteLLM may store API key configurations and model data.
+*   **LiteLLM <-> LLM Providers:** LiteLLM routes the requests to configured LLM providers (OpenAI, Azure, Gemini, DeepSeek, Moonshot). It handles the specific authentication and API requirements of each provider.
+*   **OpenWebUI & LiteLLM -> PostgreSQL:** Both services connect to the same PostgreSQL instance but use separate databases (`litellm` and `openwebui`).
 *   **LiteLLM -> Redis:** LiteLLM caches data in Redis to improve response times and reduce API usage costs.
-*   **OpenWebUI -> SearxNG:** When enabled (via `.env.owui`), OpenWebUI queries SearxNG to enrich prompts with relevant web search results.
+*   **OpenWebUI -> SearxNG:** When enabled (via `.env`), OpenWebUI queries SearxNG to enrich prompts with relevant web search results.
 
 ## Requirements
 
 *   **Docker:** Docker must be installed and running on your system.
 *   **Docker Compose:** Docker Compose V2 must be installed. This setup is designed for Docker Compose.
-*   **`pre-commit-terraform` Docker Image:** The `ghcr.io/antonbabenko/pre-commit-terraform` Docker image is used. Ensure you have network access to pull this image.
 *   **`compose.yml`:** A `compose.yml` file must exist in the root of your project.
-*   **.env Files:** Ensure `.env.litellm` and `.env.owui` exist with appropriate settings, or create them based on the provided examples.
-*   **Terraform (Optional):** If you plan to use the `pre-commit-terraform` hook to manage your infrastructure-as-code, ensure Terraform is installed.
+*   **.env Files:** Ensure `.env` exists with appropriate settings, or create it from `.env.example`.
 
 ## LLM Stack Components
 
@@ -66,172 +64,172 @@ This application is built with a multicloud hybrid architecture, allowing you to
 
 ## Files
 
-*   **`run.sh`:** The management script.
-*   **`.git/hooks/pre-commit`:** The pre-commit hook for `pre-commit-terraform`.
+*   **`Makefile`:** The management Makefile (use `make` to see available targets).
 *   **`compose.yml`:** Defines the services for the LLM stack.
-*   **`litellm_config.yaml`:** Configuration for LiteLLM models.
-*   **`.env.litellm`:** Configuration for LiteLLM.
-*   **`.env.litellm.example`:** Example configuration for LiteLLM.
-*   **`.env.owui`:** Configuration for OpenWebUI.
-*   **`.env.owui.example`:** Example configuration for OpenWebUI.
-*   **`nginx.conf`:** Nginx configuration (optional, currently commented out).
-*   **`infra/`:** Terraform infrastructure directory.
+*   **`.env.example`:** Example environment file (copy to `.env` and fill in your API keys).
+*   **`.env`:** Environment configuration for both LiteLLM and OpenWebUI.
+*   **`nginx.conf`:** Nginx configuration (optional, removed from compose by default).
 *   **`initdb.d/`:** PostgreSQL initialization scripts.
 *   **`searxng/`:** SearxNG configuration files.
 *   **`.gitleaks.toml`:** Gitleaks configuration.
-*   **`.pre-commit-config.yaml`:** Pre-commit hooks configuration.
 
-## Setup
+## Quick Start on a Fresh VM
 
-1.  **Clone the Repository:**
+These steps bring up the whole stack (OpenWebUI + LiteLLM + PostgreSQL + Redis +
+SearxNG) on a brand-new Ubuntu VM (tested on Ubuntu 24.04). Total time: ~10 minutes.
 
-     Clone this repository to your local machine. If you only need the scripts, you can download the raw scripts directly.
+### 1. Install Docker
 
-2.  **Place `run.sh`:**
+```bash
+# Install prerequisites
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
 
-     Copy the `run.sh` script to the root of your project (or a location of your choosing). Alternatively, ensure `run.sh` is in your system's `PATH`.
+# Add Docker's official GPG key and repository
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-3.  **Make `run.sh` Executable:**
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-     ```bash
-     chmod +x run.sh
-     ```
+# Install Docker Engine + Compose plugin
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-4.  **Create `.env` Files:**
+# Allow your user to run docker without sudo (re-login afterwards)
+sudo usermod -aG docker $USER
+newgrp docker
 
-     Create `.env.litellm` and `.env.owui` files in the root of your project. You can use the example files as a starting point:
+# Verify
+docker --version && docker compose version
+```
 
-     ```bash
-     cp .env.litellm.example .env.litellm
-     cp .env.owui.example .env.owui
-     ```
+### 2. Clone the repository
 
-     Populate them with the following example content, adjusting the values as needed:
+```bash
+git clone <your-repo-url> mygpt
+cd mygpt
+```
 
-     **`.env.litellm`:**
+### 3. Create `.env` from the example
 
-     ```shell
-     DATABASE_URL=postgres://llmproxy:dbpassword9090@db:5432/litellm
-     STORE_MODEL_IN_DB="True"
-     LITELLM_MASTER_KEY="sk-124781258123"
-     LITELLM_TLS_ENABLED="True"
-     REDIS_SSL="True"
-     REDIS_URL="rediss://redis:6379/1"
-     LITELLM_LOG="INFO"
+```bash
+make setup    # copies .env.example → .env (never overwrites an existing .env)
+nano .env     # or vim/emacs
+```
 
-     #custom
-     AZURE_API_KEY=""
-     AZURE_API_BASE=""
-     GEMINI_API_KEY=""
-     UI_USERNAME=""
-     UI_PASSWORD=""
-     MICROSOFT_REDIRECT_URI=""
-     ```
+### 4. Fill in at least one provider API key
 
-     **`.env.owui`:**
+The stack is provider-agnostic — the models that appear in the UI are the ones
+whose keys you set. At minimum, set **one** of these in `.env`:
 
-     ```shell
-     #basic
-     WEBUI_AUTH=False
-     ENABLE_OLLAMA_API=False
-     ENABLE_LOGIN_FORM=false
-     ENABLE_OAUTH_SIGNUP=true
-     OPENWEBUI_NO_CHANGELOG=true
+| Provider | Variable | Get a key at |
+|----------|----------|--------------|
+| **DeepSeek** (recommended, cheap) | `DEEPSEEK_API_KEY` | https://platform.deepseek.com |
+| **xAI / Grok** | `XAI_API_KEY` | https://console.x.ai |
+| **Azure OpenAI** | `AZURE_API_KEY` + `AZURE_API_BASE` | https://portal.azure.com |
+| **Google Gemini** | `GEMINI_API_KEY` | https://aistudio.google.com |
+| **Moonshot / Kimi** | `MOONSHOT_API_KEY` | https://platform.moonshot.cn |
 
-     ADMIN_EMAIL="admin@admin.com"
-     WEBUI_NAME="MY GPT"
+### 5. Start the stack
 
-     DEFAULT_USER_ROLE="user"
-     SHOW_ADMIN_DETAILS=false
-     GLOBAL_LOG_LEVEL=ERROR
+```bash
+make start
+```
 
-     #openai
-     OPENAI_API_BASE_URL="http://litellm:4000"
-     OPENAI_API_KEYS="sk-124781258123"
+This pulls the images, creates the databases, and starts everything in detached
+mode. First run takes a few minutes (image pulls + DB initialization).
 
-     #model
-     DEFAULT_MODELS=gpt-4o
-     REDIRECT_URI="http://localhost:8080/auth/callback"
+### 6. Verify it's healthy
 
-     #oauth=""
-     MICROSOFT_CLIENT_ID=""
-     MICROSOFT_CLIENT_SECRET=""
-     MICROSOFT_CLIENT_TENANT_ID=""
-     MICROSOFT_REDIRECT_URI=""
+```bash
+make status                                  # all containers should be "Up"
+curl -s http://localhost:4000/health/liveliness   # LiteLLM → "I'm alive!"
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000  # OpenWebUI → 200
+```
 
-     #db=""
-     DATABASE_URL=postgresql://llmproxy:dbpassword9090@db:5432/openwebui
+List the configured models and send a real chat request through LiteLLM:
 
-     #websearch
-     ENABLE_RAG_WEB_SEARCH=True
-     ENABLE_SEARCH_QUERY=True
-     ENABLE_RAG_WEB_SEARCH=True
-     RAG_WEB_SEARCH_ENGINE="searxng"
-     RAG_WEB_SEARCH_RESULT_COUNT=3
-     RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10
-     SEARXNG_QUERY_URL="http://searxng:8080/search?q=<query>"
+```bash
+# List models (replace the key with your LITELLM_MASTER_KEY from .env)
+curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/models
 
-     # redis
-     # REDIS_URL="rediss://redis:6379"
+# Test a completion via DeepSeek
+curl -s -X POST http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer <LITELLM_MASTER_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"Say hi"}]}'
+```
 
-     #Embeddings
-     RAG_EMBEDDING_MODEL=text-embedding-ada-002
-     RAG_EMBEDDING_MODEL_AUTO_UPDATE=True
-     RAG_EMBEDDING_ENGINE=openai
-     PDF_EXTRACT_IMAGES=True
-     RAG_OPENAI_API_BASE_URL=""
-     RAG_OPENAI_API_KEY=""
+### 7. Open the UI
 
-     # Speech
-     # AUDIO_TTS_ENGINE=azure
-     # AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT=audio-24khz-160kbitrate-mono-mp3
-     # AUDIO_TTS_AZURE_SPEECH_REGION=swedencentral
-     # AUDIO_TTS_VOICE=en-US-AlloyMultilingualNeuralHD
-     # AUDIO_TTS_API_KEY=""
-     ```
+- **OpenWebUI:** http://localhost:8000 (auth is disabled by default — you land straight in)
+- **LiteLLM:** http://localhost:4000
+- **SearxNG:** http://localhost:8080
 
-5.  **Install the Pre-Commit Hook (Optional):**
+Or use the Makefile helpers: `make open-ui`, `make open-proxy`.
 
-     *   If you plan to use the `pre-commit-terraform` hook, copy the contents of the `pre-commit` file to `.git/hooks/pre-commit` in your Git repository. If the `.git/hooks` directory doesn't exist, create it first. Be sure to name the file *exactly* `pre-commit` (no extension).
+> **Note on ports:** PostgreSQL is exposed on host port **5433** and Redis on
+> **6380** (not the defaults 5432/6379) so the stack can run alongside other
+> projects that use the standard ports. Inside the Docker network the services
+> still use `db:5432` and `redis:6379` — only the host-facing mappings differ.
 
-     *   Make the `pre-commit` hook executable:
+### Full command reference
 
-         ```bash
-         chmod +x .git/hooks/pre-commit
-         ```
-
-6.  **Configure the `pre-commit` hook (Optional):**
-
-     *   If you plan to use the `pre-commit-terraform` hook, edit the `.git/hooks/pre-commit` file and ensure the `MANAGER_SCRIPT` variable points to the correct location of your `run.sh` script. **This is critical for the hook to work!**
+```bash
+make                # Show all targets
+make start          # Start all containers
+make stop           # Stop all containers
+make status         # Container status
+make logs           # Tail logs from all services
+make logs/svc svc=X # Logs from one service (litellm|openwebui|db|redis|searxng)
+make setup          # Create .env from .env.example
+make pull           # Pull latest images
+make config         # Validate compose.yml syntax
+make clean          # Stop containers and remove volumes (⚠️ destroys data)
+make gitleaks       # Run Gitleaks security scan
+make open-ui        # Open OpenWebUI in the browser
+make open-proxy     # Open LiteLLM in the browser
+```
 
 ## Configuration
 
-### `run.sh`
-
-The `run.sh` script has the following configurable variables:
-
-*   **`COMPOSE_FILE`:** (Default: `compose.yml`) Specifies the name of the Docker Compose file. Edit the `run.sh` file directly to change this.
-*   **`PRE_COMMIT_TERRAFORM_TAG`:** (Default: `latest`) Specifies the tag for the `ghcr.io/antonbabenko/pre-commit-terraform` Docker image. Edit the `run.sh` file directly to change this.
-*   **`MANAGER_SCRIPT`:** This variable in the `.git/hooks/pre-commit` file. This *must* point to the correct location of the `run.sh` script for the hook to function correctly.
-
 ### `compose.yml`
 
-The `compose.yml` file defines the services for your LLM stack and their relationships:
+The `compose.yml` file defines the services for your LLM stack and their relationships.
+All images are pinned to **stable tagged releases** (no rolling `latest`/`main` tags):
+
+| Service | Image | Host port |
+|---------|-------|-----------|
+| `litellm` | `ghcr.io/berriai/litellm:v1.94.0` | `4000` |
+| `openwebui` | `ghcr.io/open-webui/open-webui:0.11.0` | `8000` |
+| `db` | `pgvector/pgvector:pg18` (PostgreSQL 18 + pgvector) | `5433` |
+| `redis` | `redis:8.8.1` | `6380` |
+| `searxng` | `searxng/searxng:2026.7.28-c01178d03` | `8080` |
+
+Service notes:
 
 *   **litellm:**
     *   Exposes LiteLLM on port 4000.
-    *   Reads configuration from `litellm_config.yaml` and environment variables from `.env.litellm`.
+    *   Reads configuration from `litellm_config.yaml` and environment variables from `.env`.
     *   **Depends On:** `db` (PostgreSQL) and `redis`.
     *   **Relationship:** The core of the hybrid LLM architecture, routing requests to multiple LLM providers.
 *   **openwebui:**
     *   Exposes OpenWebUI on port 8000 (mapped from container port 8080).
     *   Uses a persistent volume `open-webui` for storing data.
-    *   Reads environment variables from `.env.owui`.
+    *   Reads environment variables from `.env` (with `DATABASE_URL` overridden in compose.yml for its own database).
     *   **Depends On:** `db` (PostgreSQL).
     *   **Relationship:** The user-facing interface, providing a chat experience and leveraging LiteLLM for model access and SearxNG for RAG.
 *   **db:**
-    *   Runs a PostgreSQL database for LiteLLM and OpenWebUI.
-    *   Uses a persistent volume `pgdata` for storing the database.
+    *   Runs a PostgreSQL database for LiteLLM and OpenWebUI, **including the
+        pgvector extension** (needed for RAG embeddings).
+    *   Uses `./pgdata` for storing the database (mounted at `/var/lib/postgresql` —
+        the Postgres 18+ layout).
+    *   **Depends On:** initializes the `litellm` and `openwebui` databases from
+        `initdb.d/initdb.sql` on first run.
     *   **Relationship:** Provides persistent storage for the entire application.
 *   **redis:**
     *   Runs a Redis instance for caching.
@@ -240,19 +238,26 @@ The `compose.yml` file defines the services for your LLM stack and their relatio
     *   Runs the SearxNG metasearch engine.
     *   Exposes SearxNG on port 8080.
     *   **Relationship:** Enables OpenWebUI to perform web searches for RAG, enhancing the LLM's knowledge.
-*   **nginx (Optional):**
-    *   Currently commented out in `compose.yml`.
-    *   **Relationship:** Provides reverse proxy and SSL termination capabilities.
 
-### `.env.litellm`
+### `.env`
 
-Key settings:
+Both services read from a single `.env` file. Key settings:
 
-*   **`DATABASE_URL`:** The PostgreSQL connection string.
-*   **`LITELLM_MASTER_KEY`:** A secure API key.
-*   **`REDIS_URL`:** The Redis connection string.
-*   **`AZURE_API_KEY`, `GEMINI_API_KEY`:** API keys for specific LLM providers you intend to use.
-*   **`AZURE_API_BASE`:** The Azure API base URL.
+*   **`DATABASE_URL`:** The PostgreSQL connection string (internal: `db:5432`).
+*   **`OPENWEBUI_DATABASE_URL`:** OpenWebUI's own database (`openwebui`), injected
+    in `compose.yml`.
+*   **`LITELLM_MASTER_KEY`:** The API key used to talk to the LiteLLM proxy
+    (also set as `OPENAI_API_KEYS` so OpenWebUI authenticates against it).
+*   **`REDIS_URL`:** The Redis connection string (non-TLS, as Redis has no SSL configured).
+*   **Provider API keys** — set at least one for the models you want:
+    *   **`DEEPSEEK_API_KEY`:** DeepSeek models via `https://api.deepseek.com/v1`. Register at https://platform.deepseek.com.
+    *   **`XAI_API_KEY`:** Grok models via `https://api.x.ai/v1`. Register at https://console.x.ai.
+    *   **`AZURE_API_KEY` / `AZURE_API_BASE`:** Azure OpenAI models.
+    *   **`GEMINI_API_KEY`:** Google Gemini models.
+    *   **`MOONSHOT_API_KEY`:** Moonshot/Kimi models via `https://api.moonshot.cn/v1`. Register at https://platform.moonshot.cn.
+*   **`DEFAULT_MODELS`:** The model pre-selected in OpenWebUI (e.g. `deepseek-chat`).
+
+> ⚠️ **Never commit `.env`** — it contains real API keys. It is git-ignored.
 
 ### `litellm_config.yaml`
 
@@ -261,43 +266,36 @@ Configure the LLM models that LiteLLM will route requests to:
 *   **`model_list`:** Define the models you want to use, including:
     *   **`model_name`:** The name of the model as it will appear in OpenWebUI.
     *   **`litellm_params`:** The actual model configuration, including:
-        *   **`model`:** The model identifier (e.g., `azure/gpt-4o`, `gemini/gemini-2.0-flash`).
-        *   **`api_base`:** The API base URL (for Azure).
+        *   **`model`:** The model identifier (e.g., `azure/gpt-4o`, `gemini/gemini-2.0-flash`, `deepseek/deepseek-chat`).
+        *   **`api_base`:** The API base URL (for Azure, DeepSeek, Moonshot).
         *   **`api_key`:** The API key.
         *   **`api_version`:** The API version (for Azure).
 *   **`litellm_settings`:** Global settings for LiteLLM.
 
-### `.env.owui`
+The config includes models out of the box:
 
-Key settings:
+*   **DeepSeek:** `deepseek-chat` (OpenAI-compatible at `https://api.deepseek.com/v1`)
+*   **xAI / Grok:** `grok-4.3`, `grok-4.5` (at `https://api.x.ai/v1`)
 
-*   **`OPENAI_API_BASE_URL`:** `http://litellm:4000` (points to your local LiteLLM).
-*   **`OPENAI_API_KEYS`:** Same as `LITELLM_MASTER_KEY`.
-*   **`DATABASE_URL`:** The PostgreSQL connection string.
-*   **`SEARXNG_QUERY_URL`:** `http://searxng:8080/search?q=<query>` (for RAG).
-*   **`ENABLE_RAG_WEB_SEARCH`:** Enable web search functionality.
-*   **`RAG_WEB_SEARCH_ENGINE`:** The search engine to use (e.g., `searxng`).
-*   **`RAG_EMBEDDING_MODEL`:** The embedding model to use for RAG.
-*   **`RAG_EMBEDDING_ENGINE`:** The embedding engine (e.g., `openai`).
+> **Model IDs matter:** Grok IDs are `grok-4.3` / `grok-4.5` **with a dot** —
+> `grok-4-3` returns a model-not-found error. Only models whose API key is set
+> in `.env` actually respond; add more models here as needed (LiteLLM supports
+> Azure, Gemini, OpenAI, Anthropic, and hundreds more via the `provider/model` prefix).
 
-### `.env.litellm.example` and `.env.owui.example`
+To test a model after editing the config:
 
-Example configuration files that you can copy and modify to suit your needs.
+```bash
+docker compose up -d litellm          # reload config
+curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/models
+```
 
-### Terraform Infrastructure (`infra/`)
+### `.env.example`
 
-The project includes Terraform configurations for managing infrastructure:
+A template environment file. Copy it to `.env` and fill in your API keys before starting the stack:
 
-*   **`infra/cognitive/`:** Cognitive services infrastructure.
-*   **`infra/vm/`:** Virtual machine infrastructure.
-*   **`infra/ai/swce/`:** AI services infrastructure.
-
-To use Terraform:
-1.  Navigate to the desired infrastructure directory.
-2.  Review the `main.tf`, `variables.tf`, and `outputs.tf` files.
-3.  Run `terraform init` to initialize the backend.
-4.  Run `terraform plan` to review changes.
-5.  Run `terraform apply` to apply the changes.
+```bash
+cp .env.example .env
+```
 
 ### SearxNG Configuration (`searxng/`)
 
@@ -307,23 +305,11 @@ The SearxNG service includes configuration files:
 *   **`limiter.toml`:** Rate limiting configuration.
 *   **`uwsgi.ini`:** uWSGI configuration for performance tuning.
 
-### Nginx Configuration (`nginx.conf`)
-
-The Nginx configuration provides reverse proxy and SSL termination capabilities. Currently, this is commented out in `compose.yml` but can be enabled for production use.
-
 ### PostgreSQL Initialization (`initdb.d/`)
 
 The `initdb.d/` directory contains SQL scripts that run automatically when the PostgreSQL container is first created:
 
 *   **`initdb.sql`:** Creates the `openwebui` and `litellm` databases and enables the vector extension for RAG functionality.
-
-### Pre-Commit Hooks (`.git/hooks/pre-commit`)
-
-The pre-commit hook runs `pre-commit-terraform` to ensure Terraform code quality before each commit. It checks for:
-*   Terraform formatting
-*   Terraform validation
-*   Terraform linting
-*   Terraform documentation
 
 ### Gitleaks Configuration (`.gitleaks.toml`)
 
@@ -331,70 +317,36 @@ The Gitleaks configuration scans for secrets and sensitive information in your c
 
 ## Usage
 
-### `run.sh` Commands
+### Makefile Commands
 
-*   **`start`:** Starts the LLM stack.
-    ```bash
-    ./run.sh start
-    ```
-*   **`stop`:** Stops the LLM stack.
-    ```bash
-    ./run.sh stop
-    ```
-*   **`status`:** Shows the status of the containers.
-    ```bash
-    ./run.sh status
-    ```
-*   **`gitleaks`:** Runs Gitleaks.
-    ```bash
-    ./run.sh gitleaks
-    ```
-*   **`pre-commit-terraform`:** Runs `pre-commit-terraform`.
-    ```bash
-    ./run.sh pre-commit-terraform
-    ```
+The project includes a `Makefile` for common tasks. Run `make` to see all targets:
+
+```bash
+make          # Show help
+make start    # Start all containers
+make stop     # Stop all containers
+make restart  # Restart all containers
+make status   # Show container status (alias: make ps)
+make logs     # Tail logs from all services
+make logs/svc svc=<name>  # Logs from one service
+make setup    # Create .env from .env.example
+make pull     # Pull latest Docker images
+make config   # Validate compose.yml syntax
+make gitleaks # Run Gitleaks security scan
+make clean    # Stop containers and remove volumes (⚠️ destroys data)
+make open-ui  # Open OpenWebUI in the browser
+make open-proxy # Open LiteLLM in the browser
+```
 
 ### Gitleaks Security Scan
 
 The Gitleaks configuration scans for secrets and sensitive information in your codebase. To run a manual scan:
 
 ```bash
-./run.sh gitleaks
+make gitleaks
 ```
 
 This will scan all files in the repository for potential secrets and report any findings.
-
-### Terraform Infrastructure
-
-To manage infrastructure using Terraform:
-
-```bash
-# Navigate to the desired infrastructure directory
-cd infra/cognitive
-
-# Initialize Terraform
-terraform init
-
-# Review the plan
-terraform plan
-
-# Apply the changes
-terraform apply
-```
-
-### Pre-commit Hook
-
-The pre-commit hook runs automatically on every Git commit. It ensures Terraform code quality by:
-*   Formatting Terraform files
-*   Validating Terraform syntax
-*   Running Terraform linting
-*   Generating Terraform documentation
-
-To run the pre-commit hook manually:
-
-```bash
-./run.sh pre-commit-terraform
-```
 
 ### Accessing the Application
 
@@ -404,32 +356,33 @@ To run the pre-commit hook manually:
 
 ### Using Example Configuration Files
 
-To get started quickly, you can use the example configuration files:
+To get started quickly, copy the example file and edit it:
 
 ```bash
-# Copy example files to actual configuration files
-cp .env.litellm.example .env.litellm
-cp .env.owui.example .env.owui
-
-# Edit the configuration files with your settings
-nano .env.litellm
-nano .env.owui
+# Copy the example file and edit
+cp .env.example .env
+nano .env
 ```
 
 ### RAG and Web Search
 
 The application supports Retrieval Augmented Generation (RAG) with web search capabilities:
 
-*   **SearxNG:** Provides web search functionality. Configure the search engine in `.env.owui`.
-*   **Vector Extension:** PostgreSQL includes the vector extension for storing and querying embeddings. This is enabled automatically via `initdb.d/initdb.sql`.
-*   **Embedding Model:** Configure the embedding model in `.env.owui` (e.g., `text-embedding-ada-002`).
-*   **Web Search:** Enable web search by setting `ENABLE_RAG_WEB_SEARCH=True` in `.env.owui`.
+*   **SearxNG:** Provides web search functionality. Configure the search engine in `.env`.
+*   **Vector Extension:** PostgreSQL (via the `pgvector/pgvector` image) includes the
+    pgvector extension for storing and querying embeddings. It is enabled on both
+    databases automatically via `initdb.d/initdb.sql`.
+*   **Embedding Model:** Configure the embedding model in `.env`
+    (e.g. `text-embedding-ada-002`). Note: embeddings currently require an
+    OpenAI-compatible key; if you only have a DeepSeek/Grok key, chat works but
+    RAG document uploads may need an embedding provider.
+*   **Web Search:** Enable web search by setting `ENABLE_RAG_WEB_SEARCH=True` in `.env`.
 
 ### Key steps for configuration
 
 1.  **Configure LLM Models**: Specify cloud based or local LLM models in your `litellm_config.yaml` or env variables.
-2.  **Test each model**: Test each model separately by calling the LiteLLM proxy API to check API_KEY and function call integration
-3.  **Set up frontend models**: Select tested models to use with UI
+2.  **Test each model**: Test each model separately by calling the LiteLLM proxy API to check API_KEY and function call integration.
+3.  **Set up frontend models**: Select tested models to use with UI.
 
 ## Important Considerations
 
@@ -437,43 +390,37 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
 *   **Model Configuration:** Carefully configure the LLM models within LiteLLM to ensure compatibility and optimal performance. Refer to LiteLLM documentation for configuration best practices. Test each model before using with the UI.
 *   **Personalization:** Customize OpenWebUI's appearance, settings, and RAG features to align with your preferences. Experiment with personalization and test after each change.
 *   **Hybrid AI Provider Considerations:** When you use multiple AI model providers, you may need to test the latency of each model to ensure reasonable performance.
-*   **Example Files:** The `.env.litellm.example` and `.env.owui.example` files contain example configurations. Always copy them to `.env.litellm` and `.env.owui` before using them, and never commit the actual `.env` files to version control.
-*   **Pre-commit Hooks:** The pre-commit hook will run automatically on every commit. Ensure your Terraform code passes all checks before committing.
+*   **Environment File:** The `.env.example` file contains a template configuration. Copy it to `.env` and fill in your API keys. Never commit the actual `.env` file to version control.
 *   **Gitleaks:** The Gitleaks configuration scans for secrets. Review the `.gitleaks.toml` file to understand what is being scanned and what is being allowed.
-*   **SSL/TLS:** If you enable Nginx, ensure you have valid SSL certificates. You can use Let's Encrypt for free SSL certificates.
 *   **Backup:** Regularly backup your PostgreSQL database by copying the `pgdata` volume to a safe location.
 *   **Monitoring:** Monitor the container logs regularly to ensure all services are running correctly and to catch any issues early.
 *   **Rate Limiting:** Configure rate limiting in SearxNG to prevent abuse and ensure fair usage.
 
 ## Troubleshooting
 
-*   **"docker compose command not found"**: Ensure Docker Compose is installed and in your `PATH`.
-*   **"Permission denied"**: Ensure scripts are executable (`chmod +x run.sh`).
-*   **LLM Stack Issues:** Check container logs (`docker compose -f compose.yml logs <service>`). Common problems:
-    *   Database connection issues.
-    *   Missing API keys in `.env.litellm`.
-    *   Incorrect `OPENAI_API_BASE_URL` in `.env.owui`.
-    *   SearxNG not functioning.
-*   **Incorrect user permissions**: Ensure USERID matches your local user.
-*   **LiteLLM cannot call model provider APIs**: Test individual models from your providers using a curl command. Check the API endpoints and keys.
-*   **Terraform Issues:** If using Terraform, ensure you have the correct provider configurations in `provider.tf` and run `terraform init` before applying changes.
-*   **SearxNG Issues:** Check the `searxng/settings.yml` and `searxng/limiter.toml` files for configuration issues. Ensure the Redis connection is working.
-*   **Vector Extension Not Found:** If you encounter issues with RAG functionality, ensure the vector extension is enabled in the PostgreSQL database by checking the `initdb.d/initdb.sql` file.
-*   **Pre-commit Hook Not Working:** Ensure the `.git/hooks/pre-commit` file is executable and points to the correct `run.sh` script location. You can verify this by running `cat .git/hooks/pre-commit`.
-*   **Gitleaks False Positives:** If Gitleaks reports false positives, you can add exceptions to the `.gitleaks.toml` file in the `allowlist` section.
-*   **Nginx Issues:** If you enable Nginx, ensure you have valid SSL certificates in the `ssl/` directory and update the `nginx.conf` file with your domain and port.
-*   **PostgreSQL Database Issues:** If you need to recreate the database, remove the `pgdata` volume and restart the containers. The `initdb.d/initdb.sql` file will run automatically to create the databases and enable the vector extension.
-*   **LiteLLM Configuration Issues:** If LiteLLM is not routing requests correctly, check the `litellm_config.yaml` file for model configurations. Ensure the `model_name` matches what OpenWebUI expects and the `litellm_params` are correctly configured.
-*   **Redis Connection Issues:** If Redis is not working, check the `REDIS_URL` in `.env.litellm` and `.env.owui`. Ensure the Redis container is running and accessible.
-*   **OpenWebUI Issues:** If OpenWebUI is not working, check the `DATABASE_URL` in `.env.owui` and ensure the PostgreSQL container is running. Check the OpenWebUI logs for specific error messages.
-*   **Docker Compose Issues:** If you encounter issues with Docker Compose, ensure you are using the correct compose file (`compose.yml`) and that all services are defined correctly. You can check the compose file syntax by running `docker compose -f compose.yml config`.
-*   **Git Pre-commit Hook Issues:** If the pre-commit hook is not running, ensure it is properly installed in `.git/hooks/pre-commit` and is executable. You can test it by running `git commit --dry-run`. Ensure the hook script is pointing to the correct `run.sh` location.
-*   **SearxNG Configuration Issues:** If SearxNG is not working, check the `searxng/settings.yml` file for configuration issues. Ensure the `secret_key` is set to a unique value and the `limiter` setting is configured correctly.
-*   **LiteLLM Model Configuration Issues:** If LiteLLM is not routing requests correctly, check the `litellm_config.yaml` file for model configurations. Ensure the `model_name` matches what OpenWebUI expects and the `litellm_params` are correctly configured.
-*   **PostgreSQL Database Issues:** If you encounter issues with the PostgreSQL database, check the `DATABASE_URL` in `.env.litellm` and `.env.owui`. Ensure the database is created and accessible. You can check the database logs by running `docker compose -f compose.yml logs db`.
-*   **Redis Configuration Issues:** If Redis is not working, check the `REDIS_URL` in `.env.litellm` and `.env.owui`. Ensure the Redis container is running and accessible. You can check the Redis logs by running `docker compose -f compose.yml logs redis`.
-*   **OpenWebUI Configuration Issues:** If OpenWebUI is not working, check the `DATABASE_URL` in `.env.owui` and ensure the PostgreSQL container is running. Check the OpenWebUI logs for specific error messages. Ensure the `OPENAI_API_BASE_URL` and `OPENAI_API_KEYS` are correctly configured.
-*   **Docker Compose File Issues:** If you encounter issues with the Docker Compose file, ensure you are using the correct file (`compose.yml`) and that all services are defined correctly. You can check the compose file syntax by running `docker compose -f compose.yml config`.
-*   **Pre-commit Hook Configuration Issues:** If the pre-commit hook is not running correctly, check that the `MANAGER_SCRIPT` variable in `.git/hooks/pre-commit` points to the correct `run.sh` location. You can verify this by running `cat .git/hooks/pre-commit` and looking for the `MANAGER_SCRIPT` variable.
+*   **"docker compose command not found"**: Ensure Docker Compose v2 is installed and in your `PATH`.
+*   **"Permission denied"**: Ensure the Makefile is executable (`chmod +x Makefile`) or run `make <target>` directly.
+*   **"Port is already allocated"** on 5432/6379: another PostgreSQL/Redis on the host.
+    This stack maps to **5433** and **6380** by default to avoid collisions — or stop
+    the other service. Check who holds a port with `lsof -i :5432`.
+*   **Postgres container keeps restarting**: The Postgres 18+ image stores data in
+    `/var/lib/postgresql` (not `/var/lib/postgresql/data`) and refuses to start with
+    the old mount point. Make sure `compose.yml` mounts `./pgdata:/var/lib/postgresql:rw`.
+*   **`extension "vector" is not available`**: The plain `postgres` image does not ship
+    pgvector. Use the `pgvector/pgvector:pg18` image (already set in `compose.yml`).
+*   **No models appear in OpenWebUI**: Check `litellm_config.yaml` and confirm at least
+    one provider key is set in `.env`; reload with `docker compose up -d litellm`.
+*   **`model not found` for Grok**: The IDs are `grok-4.3` and `grok-4.5` **with a dot**,
+    not a dash.
+*   **LiteLLM cannot call provider APIs**: Test a model directly:
+    `curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/chat/completions ...`.
+    Check the API endpoint and key.
+*   **Database changes not applied**: To re-run `initdb.d/initdb.sql`, stop the stack
+    (`make stop`), delete `./pgdata` (⚠️ destroys all data), then `make start`.
+*   **Gitleaks false positives**: Add exceptions to the `allowlist` section of `.gitleaks.toml`.
+*   **SearxNG misbehaving**: Check `searxng/settings.yml` — ensure `secret_key` is unique
+    and the `limiter` is configured correctly.
+*   **Check logs for any service**: `docker compose -f compose.yml logs <service>`
+    (`litellm`, `openwebui`, `db`, `redis`, `searxng`).
 
 This setup provides a solid foundation for a personal, customized hybrid GPT chat application, with a clear architecture and robust management tools. Remember to adapt the configurations to your specific needs and security requirements.

@@ -1,7 +1,7 @@
 services:
   litellm:
     container_name: litellm
-    image: ghcr.io/berriai/litellm:main-v1.57.8
+    image: ghcr.io/berriai/litellm:v1.94.0
     restart: unless-stopped
     ports:
       - "4000:4000"
@@ -9,67 +9,54 @@ services:
       - db
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-    # env_file: .env.litellm
+    env_file: .env
     command: ["--config", "/app/config.yaml", "--detailed_debug"]
     networks:
       - my_network
 
   openwebui:
     container_name: webui
-    image: ghcr.io/open-webui/open-webui:0.5.10
+    image: ghcr.io/open-webui/open-webui:0.11.0
     volumes:
       - open-webui:/app/backend/data
     ports:
       - "8000:8080"
     depends_on:
       - db
-    # env_file: .env.owui
+    env_file: .env
+    environment:
+      DATABASE_URL: ${OPENWEBUI_DATABASE_URL}
     restart: unless-stopped
     networks:
       - my_network
 
   db:
     container_name: db
-    image: postgres:latest
+    image: pgvector/pgvector:pg18
     restart: unless-stopped
     environment:
       POSTGRES_USER: llmproxy
       POSTGRES_PASSWORD: dbpassword9090
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - ./pgdata:/var/lib/postgresql/data:rw
+      - ./pgdata:/var/lib/postgresql:rw
       - ./initdb.d:/docker-entrypoint-initdb.d
     networks:
       - my_network
 
-  # nginx:
-  #     container_name: nginx
-  #     image: nginx:latest
-  #     restart: unless-stopped
-  #     ports:
-  #       - "443:443"
-  #     volumes:
-  #       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-  #       - ./ssl/cert.pem:/etc/ssl/certs/cert.pem:ro
-  #       - ./ssl/key.pem:/etc/ssl/private/key.pem:ro
-  #     depends_on:
-  #       - openwebui
-  #     networks:
-  #       - my_network
-  
-  redis: 
+  redis:
     container_name: redis
-    image: redis:latest
+    image: redis:8.8.1
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - my_network
 
   searxng:
     container_name: searxng
-    image: docker.io/searxng/searxng:latest
+    image: docker.io/searxng/searxng:2026.7.28-c01178d03
     restart: unless-stopped
     ports:
       - "8080:8080"

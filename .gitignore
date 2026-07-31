@@ -18,14 +18,6 @@ pip-delete-this-directory.txt
 **/*.image.tar
 **/build/
 
-# Terraform
-*.tfstate
-*.tfstate.backup
-.terraform/
-crash.log
-*.tfvars
-*.zip
-
 # IDEs
 .vscode/
 .history/
@@ -39,19 +31,11 @@ crash.log
 .DS_Store
 Thumbs.db
 
-# GitHub secrets
+# GitHub secrets & local data (never commit)
 *.key
 *.pem
-*.env*
-*./pgdata*
-./initdb.d/
-./pgdata/
+.env
+.env.*
+!.env.example
+pgdata/
 
-# Terraform
-*.tfstate
-*.tfstate.backup
-.terraform/
-crash.log
-*.tfvars
-*.zip
-infra/terraform.tfvars
