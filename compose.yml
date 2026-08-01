@@ -1,10 +1,26 @@
 services:
+  caddy:
+    container_name: caddy
+    # Custom image with the caddy-dns/azure module (DNS-01 for chat.softawebit.com)
+    build: ./caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file: .env
+    depends_on:
+      - openwebui
+    networks:
+      - my_network
+
   litellm:
     container_name: litellm
     image: ghcr.io/berriai/litellm:v1.94.0
     restart: unless-stopped
-    ports:
-      - "4000:4000"
     depends_on:
       - db
     volumes:
@@ -19,8 +35,6 @@ services:
     image: ghcr.io/open-webui/open-webui:0.11.0
     volumes:
       - open-webui:/app/backend/data
-    ports:
-      - "8000:8080"
     depends_on:
       - db
     env_file: .env
@@ -37,8 +51,6 @@ services:
     environment:
       POSTGRES_USER: llmproxy
       POSTGRES_PASSWORD: dbpassword9090
-    ports:
-      - "5433:5432"
     volumes:
       - ./pgdata:/var/lib/postgresql:rw
       - ./initdb.d:/docker-entrypoint-initdb.d
@@ -49,8 +61,6 @@ services:
     container_name: redis
     image: redis:8.8.1
     restart: unless-stopped
-    ports:
-      - "6380:6379"
     networks:
       - my_network
 
@@ -58,8 +68,6 @@ services:
     container_name: searxng
     image: docker.io/searxng/searxng:2026.7.28-c01178d03
     restart: unless-stopped
-    ports:
-      - "8080:8080"
     volumes:
       - ./searxng:/etc/searxng:rw
     environment:
@@ -81,6 +89,8 @@ volumes:
   litellm:
   open-webui:
   pgdata:
+  caddy_data:
+  caddy_config:
 
 networks:
   my_network:

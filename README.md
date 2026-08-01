@@ -84,8 +84,9 @@ VM/server). Total time: ~10 minutes.
 
 - [ ] **Docker** with Docker Compose v2 (install steps below)
 - [ ] **API key** for at least one LLM provider — Azure AI Foundry recommended
-- [ ] **Host ports `8000`, `4000`, `8080`, `5433`, `6380` free**, or edit the
-      port mappings in `compose.yml` (see note on ports below)
+- [ ] **A Tailscale tailnet** with this machine on it, plus **Azure DNS** for your
+      domain. HTTPS is served at `https://chat.softawebit.com`, reachable by your
+      tailnet devices only.
 
 ### 1. Install Docker
 
@@ -173,42 +174,46 @@ mode. First run takes a few minutes (image pulls + DB initialization).
 ### 6. Verify it's healthy
 
 ```bash
-make status                                  # all containers should be "Up"
-curl -s http://localhost:4000/health/liveliness   # LiteLLM → "I'm alive!"
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000  # OpenWebUI → 200
+make status                          # all containers should be "Up"
+curl -s https://chat.softawebit.com  # OpenWebUI via HTTPS → 200
 ```
 
-List the configured models and send a real chat request through LiteLLM:
+LiteLLM is internal-only now, so check it from inside the container:
 
 ```bash
-# List models (replace the key with your LITELLM_MASTER_KEY from .env)
-curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/models
+# Health check → "I'm alive!"
+docker compose exec litellm python3 -c "import urllib.request as u; print(u.urlopen('http://localhost:4000/health/liveliness').read().decode())"
+
+# List configured models (replace the key with your LITELLM_MASTER_KEY from .env)
+docker compose exec litellm python3 -c "
+import urllib.request as u
+r = u.Request('http://localhost:4000/v1/models', headers={'Authorization': 'Bearer <LITELLM_MASTER_KEY>'})
+print(u.urlopen(r).read().decode())"
 
 # Test a completion via gpt-5.6-luna
-curl -s -X POST http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer <LITELLM_MASTER_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"Say hi"}]}'
+docker compose exec litellm python3 -c "
+import urllib.request as u, json
+body = json.dumps({'model': 'gpt-5.6-luna', 'messages': [{'role': 'user', 'content': 'Say hi'}]}).encode()
+r = u.Request('http://localhost:4000/v1/chat/completions', data=body,
+              headers={'Authorization': 'Bearer <LITELLM_MASTER_KEY>', 'Content-Type': 'application/json'})
+print(u.urlopen(r).read().decode())"
 ```
 
 ### 7. Open the UI
 
-- **OpenWebUI:** http://localhost:8000 (auth is disabled by default — you land straight in)
-- **LiteLLM:** http://localhost:4000
-- **SearxNG:** http://localhost:8080
+- **OpenWebUI:** https://chat.softawebit.com (auth is disabled by default — you land straight in)
+- **LiteLLM / SearxNG:** internal-only — reach them through OpenWebUI
 
 Or use the Makefile helpers: `make open-ui`, `make open-proxy`.
 
-> **Note on ports:** PostgreSQL is exposed on host port **5433** and Redis on
-> **6380** (not the defaults 5432/6379) so the stack can run alongside other
-> projects that use the standard ports. Inside the Docker network the services
-> still use `db:5432` and `redis:6379` — only the host-facing mappings differ.
->
-> **If `make start` reports "port is already allocated":** another service on
-> the machine holds a port. Find it with `lsof -i :5432` (macOS/Linux) and either
-> stop that service or remap the host port in `compose.yml` (e.g. change
-> `"5433:5432"` to `"5434:5432"`). The internal addresses never change — only
-> the left-hand side (host port) matters.
+> **Note on topology:** TLS is terminated by **Caddy** on host port 443. The
+> certificate for `chat.softawebit.com` is issued via the **Azure DNS-01 challenge**
+> (no inbound ports needed — this box is behind CGNAT), and Caddy reverse-proxies
+> to `openwebui:8080`. Every backend (`openwebui`, `litellm`, `searxng`, `db`,
+> `redis`) is reachable **only on the internal `my_network`**, by service name.
+> To debug an internal service from the host, exec into it
+> (`docker compose exec <svc> sh`) or run a one-off container on the network
+> (`docker run --rm --network mygpt_my_network curlimages/curl ...`).
 
 ### Full command reference
 
@@ -224,8 +229,55 @@ make pull           # Pull latest images
 make config         # Validate compose.yml syntax
 make clean          # Stop containers and remove volumes (⚠️ destroys data)
 make gitleaks       # Run Gitleaks security scan
-make open-ui        # Open OpenWebUI in the browser
-make open-proxy     # Open LiteLLM in the browser
+make open-ui        # Open OpenWebUI in the browser (HTTPS, tailnet only)
+make open-proxy     # Show how to reach the internal-only LiteLLM proxy
+make caddy-reload   # Reload Caddy config after editing Caddyfile
+```
+
+## HTTPS with a custom domain (Azure DNS-01)
+
+This machine sits behind **CGNAT** — its public IP is unreachable from the internet,
+so HTTP-01 certificate challenges are impossible, and Tailscale's built-in HTTPS
+only issues certificates for the random `*.ts.net` tailnet name (which cannot be set
+to a custom name). So `chat.softawebit.com` is served over your **Tailscale tailnet**
+with a real Let's Encrypt certificate obtained via **DNS-01** against the **Azure
+DNS** zone for `softawebit.com`:
+
+```
+tailnet device → https://chat.softawebit.com   (Caddy, TLS via Azure DNS-01)
+              → openwebui:8080
+```
+
+*   DNS: an **A/CNAME record** for `chat.softawebit.com` resolves to this node's
+    Tailscale IP (`100.123.171.13`) — publicly resolvable, but the address is CGNAT
+    space, so **only tailnet devices can connect**.
+*   **Caddy** (`caddy:2.11.4` + the `caddy-dns/azure` module, built in `./caddy`)
+    owns host port **443** and issues/renews the certificate automatically via the
+    Azure DNS-01 challenge — no inbound ports, no cron.
+*   Only devices on your tailnet can reach the site — nothing is exposed to the
+    public internet.
+
+### One-time setup
+
+1. Create an Azure service principal with **DNS Zone Contributor** on the
+   `softawebit.com` zone:
+   ```bash
+   az ad sp create-for-rbac --name mygpt-caddy --role "DNS Zone Contributor" \
+     --scopes "/subscriptions/<SUB>/resourceGroups/<RG>/providers/Microsoft.Network/dnszones/softawebit.com"
+   ```
+2. Fill the five `AZURE_*` values (subscription, resource group, tenant, client id,
+   client secret) into `.env`.
+3. Add an **A record** `chat.softawebit.com` → `100.123.171.13` in Azure DNS.
+4. `make start` — Caddy issues the certificate automatically on first boot.
+
+From any tailnet device, open **https://chat.softawebit.com**.
+
+### Managing routes
+
+Routes live in `Caddyfile`. After editing, reload without downtime:
+
+```bash
+make caddy-reload
 ```
 
 ## Configuration
@@ -237,21 +289,29 @@ All images are pinned to **stable tagged releases** (no rolling `latest`/`main` 
 
 | Service | Image | Host port |
 |---------|-------|-----------|
-| `litellm` | `ghcr.io/berriai/litellm:v1.94.0` | `4000` |
-| `openwebui` | `ghcr.io/open-webui/open-webui:0.11.0` | `8000` |
-| `db` | `pgvector/pgvector:pg18` (PostgreSQL 18 + pgvector) | `5433` |
-| `redis` | `redis:8.8.1` | `6380` |
-| `searxng` | `searxng/searxng:2026.7.28-c01178d03` | `8080` |
+| `caddy` | `caddy:2.11.4` + `caddy-dns/azure` (built from `./caddy`) | `80`, `443` |
+| `litellm` | `ghcr.io/berriai/litellm:v1.94.0` | internal |
+| `openwebui` | `ghcr.io/open-webui/open-webui:0.11.0` | internal |
+| `db` | `pgvector/pgvector:pg18` (PostgreSQL 18 + pgvector) | internal |
+| `redis` | `redis:8.8.1` | internal |
+| `searxng` | `searxng/searxng:2026.7.28-c01178d03` | internal |
 
 Service notes:
 
+*   **caddy:**
+    *   Custom image (`./caddy`) with the `caddy-dns/azure` module. Owns host port
+        443 and terminates TLS for `chat.softawebit.com`, obtaining the certificate
+        via the Azure DNS-01 challenge, then reverse-proxies to `openwebui:8080`.
+    *   **Depends On:** `openwebui`.
+    *   **Relationship:** Serves the stack over HTTPS on the tailnet; edit
+        `Caddyfile` and run `make caddy-reload` to apply changes without downtime.
 *   **litellm:**
-    *   Exposes LiteLLM on port 4000.
+    *   Internal-only on port 4000 (reachable by service name `litellm`).
     *   Reads configuration from `litellm_config.yaml` and environment variables from `.env`.
     *   **Depends On:** `db` (PostgreSQL) and `redis`.
     *   **Relationship:** The core of the hybrid LLM architecture, routing requests to multiple LLM providers.
 *   **openwebui:**
-    *   Exposes OpenWebUI on port 8000 (mapped from container port 8080).
+    *   Internal-only on port 8080; served over HTTPS at `https://chat.softawebit.com`.
     *   Uses a persistent volume `open-webui` for storing data.
     *   Reads environment variables from `.env` (with `DATABASE_URL` overridden in compose.yml for its own database).
     *   **Depends On:** `db` (PostgreSQL).
@@ -269,7 +329,7 @@ Service notes:
     *   **Relationship:** Accelerates LiteLLM performance through caching.
 *   **searxng:**
     *   Runs the SearxNG metasearch engine.
-    *   Exposes SearxNG on port 8080.
+    *   Internal-only on port 8080; queried by OpenWebUI for web search.
     *   **Relationship:** Enables OpenWebUI to perform web searches for RAG, enhancing the LLM's knowledge.
 
 ### `.env`
@@ -407,9 +467,9 @@ This will scan all files in the repository for potential secrets and report any 
 
 ### Accessing the Application
 
-*   **OpenWebUI:** `http://localhost:8000`
-*   **LiteLLM:** `http://localhost:4000`
-*   **SearxNG:** `http://localhost:8080`
+*   **OpenWebUI:** `https://chat.softawebit.com` (HTTPS, tailnet only)
+*   **LiteLLM:** internal-only (`litellm:4000` on the Docker network)
+*   **SearxNG:** internal-only (`searxng:8080` on the Docker network)
 
 ### Using Example Configuration Files
 
@@ -456,9 +516,9 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
 
 *   **"docker compose command not found"**: Ensure Docker Compose v2 is installed and in your `PATH`.
 *   **"Permission denied"**: Ensure the Makefile is executable (`chmod +x Makefile`) or run `make <target>` directly.
-*   **"Port is already allocated"** on 5432/6379: another PostgreSQL/Redis on the host.
-    This stack maps to **5433** and **6380** by default to avoid collisions — or stop
-    the other service. Check who holds a port with `lsof -i :5432`.
+*   **"Port 443 already in use"**: host port 443 is taken — **Caddy** binds it now.
+    Find the holder with `lsof -i :443` and stop it (this may include a leftover
+    `tailscale serve` from a previous setup — clear it with `tailscale serve reset`).
 *   **Postgres container keeps restarting**: The Postgres 18+ image stores data in
     `/var/lib/postgresql` (not `/var/lib/postgresql/data`) and refuses to start with
     the old mount point. Make sure `compose.yml` mounts `./pgdata:/var/lib/postgresql:rw`.
@@ -468,9 +528,9 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
     one provider key is set in `.env`; reload with `docker compose up -d litellm`.
 *   **`model not found` for Grok**: The IDs are `grok-4.3` / `grok-4.5` **with a dot**,
     not a dash. Via Azure Foundry, the deployment must exist under that name.
-*   **LiteLLM cannot call provider APIs**: Test a model directly:
-    `curl -s -H "Authorization: Bearer <LITELLM_MASTER_KEY>" http://localhost:4000/v1/chat/completions ...`.
-    Check the API endpoint and key.
+*   **LiteLLM cannot call provider APIs**: Test a model directly from inside the
+    container (see the completion command in [step 6](#6-verify-its-healthy)) or
+    watch logs with `make logs/svc svc=litellm`. Check the API endpoint and key.
 *   **Database changes not applied**: To re-run `initdb.d/initdb.sql`, stop the stack
     (`make stop`), delete `./pgdata` (⚠️ destroys all data), then `make start`.
 *   **Gitleaks false positives**: Add exceptions to the `allowlist` section of `.gitleaks.toml`.

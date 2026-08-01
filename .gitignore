@@ -12,6 +12,8 @@ pip-delete-this-directory.txt
 
 # Docker
 **/Dockerfile
+# Our Caddy image build (caddy-dns/azure) — must be tracked
+!caddy/Dockerfile
 **/docker-compose.yml
 **/.env
 **/litellm_config.yaml  # Include if sensitive data is not already excluded

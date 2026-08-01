@@ -1,0 +1,23 @@
+# HTTPS for chat.softawebit.com, served over the Tailscale tailnet.
+#
+# The certificate is issued via the Azure DNS-01 challenge (this box is behind
+# CGNAT, so HTTP-01 is impossible). Credentials come from the AZURE_* env vars
+# in .env. The A/CNAME record for chat.softawebit.com resolves to this node's
+# Tailscale IP (100.123.171.13), so only tailnet devices can connect.
+#
+# No public-domain route (chat.softawebit.com) could work without this DNS-01
+# setup; the old ts.net Serve path was retired when this replaced it.
+
+chat.softawebit.com {
+	tls {
+		dns azure {
+			subscription_id {$AZURE_SUBSCRIPTION_ID}
+			resource_group_name {$AZURE_RESOURCE_GROUP_NAME}
+			tenant_id {$AZURE_TENANT_ID}
+			client_id {$AZURE_CLIENT_ID}
+			client_secret {$AZURE_CLIENT_SECRET}
+		}
+	}
+	encode zstd gzip
+	reverse_proxy openwebui:8080
+}
