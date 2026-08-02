@@ -234,43 +234,104 @@ make open-proxy     # Show how to reach the internal-only LiteLLM proxy
 make caddy-reload   # Reload Caddy config after editing Caddyfile
 ```
 
-## HTTPS with a custom domain (Azure DNS-01)
+## HTTPS with a custom domain (Azure DNS-01) — as deployed
 
-This machine sits behind **CGNAT** — its public IP is unreachable from the internet,
-so HTTP-01 certificate challenges are impossible, and Tailscale's built-in HTTPS
-only issues certificates for the random `*.ts.net` tailnet name (which cannot be set
-to a custom name). So `chat.softawebit.com` is served over your **Tailscale tailnet**
-with a real Let's Encrypt certificate obtained via **DNS-01** against the **Azure
-DNS** zone for `softawebit.com`:
+**Status:** live and verified — `https://chat.softawebit.com` serves OpenWebUI over
+the Tailscale tailnet with a Let's Encrypt certificate issued via the **Azure DNS-01**
+challenge. No inbound ports, no cron, no browser warnings.
+
+### Why this design
+
+This machine sits behind **CGNAT** — its public IP is unreachable from the internet
+(external probes return `No route to host`), so:
+
+*   **HTTP-01 certificate challenges are impossible** — Let's Encrypt can never reach
+    the box on port 80.
+*   **Tailscale's built-in HTTPS can't help** — it only issues certificates for the
+    tailnet's random `*.ts.net` name (`linux.taila7a39b.ts.net`), and that random
+    tailnet name **cannot be set to a custom name** (only to another random one).
+
+The workable path is a **DNS-01 challenge against Azure DNS**: the box never needs to
+be reachable — it only needs to *write a TXT record* to prove domain ownership.
+
+### Final architecture
 
 ```
-tailnet device → https://chat.softawebit.com   (Caddy, TLS via Azure DNS-01)
-              → openwebui:8080
+tailnet device → https://chat.softawebit.com   (Caddy :443, TLS via Azure DNS-01)
+              → openwebui:8080                 (internal network, by service name)
 ```
 
-*   DNS: an **A/CNAME record** for `chat.softawebit.com` resolves to this node's
-    Tailscale IP (`100.123.171.13`) — publicly resolvable, but the address is CGNAT
-    space, so **only tailnet devices can connect**.
-*   **Caddy** (`caddy:2.11.4` + the `caddy-dns/azure` module, built in `./caddy`)
-    owns host port **443** and issues/renews the certificate automatically via the
-    Azure DNS-01 challenge — no inbound ports, no cron.
-*   Only devices on your tailnet can reach the site — nothing is exposed to the
-    public internet.
+*   **DNS:** an **A record** `chat.softawebit.com → 100.123.171.13` (this node's
+    Tailscale IP). It resolves publicly to a CGNAT address, but only tailnet devices
+    have a route into `100.64.0.0/10`, so **only your devices can connect**.
+*   **Caddy** (custom image, built from `./caddy`) owns host ports **80/443** and
+    reverse-proxies to `openwebui:8080`.
+*   **Only Caddy** is published to the host — every other service (`litellm`,
+    `openwebui`, `db`, `redis`, `searxng`) is internal-only on the Docker network.
 
-### One-time setup
+### How the certificate is issued (DNS-01 flow)
 
-1. Create an Azure service principal with **DNS Zone Contributor** on the
+1. Caddy asks Let's Encrypt for a certificate for `chat.softawebit.com` (challenge
+   type `dns-01`).
+2. Caddy's ACME library (`certmagic`) locates the authoritative zone by walking
+   `_acme-challenge.chat.softawebit.com` → `chat.softawebit.com` → `softawebit.com`
+   and querying each candidate's **SOA record**.
+3. The `caddy-dns/azure` module calls the **Azure DNS API** (service principal from
+   the `AZURE_*` env vars) and creates the TXT record
+   `_acme-challenge.chat.softawebit.com` in the `softawebit.com` zone.
+4. Let's Encrypt reads that TXT record over public DNS, validates it, and issues the
+   certificate.
+5. Caddy stores the certificate and **auto-renews it** — no cert-manager, no cron.
+
+### One-time setup (exactly as done)
+
+1. **Create the Azure service principal** with `DNS Zone Contributor` scoped to the
    `softawebit.com` zone:
    ```bash
    az ad sp create-for-rbac --name mygpt-caddy --role "DNS Zone Contributor" \
      --scopes "/subscriptions/<SUB>/resourceGroups/<RG>/providers/Microsoft.Network/dnszones/softawebit.com"
    ```
-2. Fill the five `AZURE_*` values (subscription, resource group, tenant, client id,
-   client secret) into `.env`.
-3. Add an **A record** `chat.softawebit.com` → `100.123.171.13` in Azure DNS.
-4. `make start` — Caddy issues the certificate automatically on first boot.
+   Map the output: `appId` → `AZURE_CLIENT_ID`, `password` → `AZURE_CLIENT_SECRET`,
+   `tenant` → `AZURE_TENANT_ID`. The secret is shown only once.
+2. **Fill the five `AZURE_*` values** in `.env` — `AZURE_SUBSCRIPTION_ID`,
+   `AZURE_RESOURCE_GROUP_NAME`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+   `AZURE_CLIENT_SECRET`.
+3. **Create an A record** (see pitfall #1 — *not* a CNAME) in Azure DNS:
+   `chat.softawebit.com` → `100.123.171.13`.
+4. **Build and start**:
+   ```bash
+   make start        # builds ./caddy (xcaddy + caddy-dns/azure) and starts the stack
+   ```
+   Caddy issues the certificate automatically on first boot. The `AZURE_*` vars reach
+   it via `env_file: .env` in `compose.yml`.
 
-From any tailnet device, open **https://chat.softawebit.com**.
+From any tailnet device, open **https://chat.softawebit.com** — no client setup
+needed; Tailscale routes the CGNAT IP automatically.
+
+### Pitfalls (learned the hard way)
+
+**1. Use an A record, not a CNAME to the `*.ts.net` hostname.** A CNAME
+(`chat.softawebit.com → linux.taila7a39b.ts.net`) seems equivalent — it resolves to
+the same IP — but it breaks Caddy's zone detection: the SOA query follows the CNAME
+into `ts.net`, whose DNS answers **`NOTIMP`** (RCODE 4), so certmagic aborts with
+`could not determine zone for domain ... unexpected response code 'NOTIMP'`. Point the
+record at the tailnet IP directly with an **A record**.
+
+**2. DNS caching can delay the fix.** After changing the record, caching resolvers
+(typically the **home router**) keep serving the old CNAME for up to its TTL (~1 hour),
+reproducing the same `NOTIMP` until the entry expires. It self-heals; to force it:
+```bash
+sudo resolvectl flush-caches         # flush the host resolver cache
+sudo resolvectl dns <iface> 1.1.1.1  # optionally bypass the router's cache
+```
+
+**3. Diagnose zone-detection failures with `dig`.** Compare the authoritative answer
+against what your resolver sees:
+```bash
+dig A chat.softawebit.com @ns1-01.azure-dns.com +short   # correct → 100.123.171.13
+dig SOA chat.softawebit.com @ns1-01.azure-dns.com | grep status   # NOERROR = zone fine
+dig SOA chat.softawebit.com | grep status                # via your resolver
+```
 
 ### Managing routes
 
@@ -519,6 +580,15 @@ The application supports Retrieval Augmented Generation (RAG) with web search ca
 *   **"Port 443 already in use"**: host port 443 is taken — **Caddy** binds it now.
     Find the holder with `lsof -i :443` and stop it (this may include a leftover
     `tailscale serve` from a previous setup — clear it with `tailscale serve reset`).
+*   **Caddy logs `could not determine zone ... unexpected response code 'NOTIMP'`**:
+    the certificate can't be issued because Caddy's zone detection can't find the
+    zone. Almost always one of two causes — fix both per the [HTTPS section](#https-with-a-custom-domain-azure-dns-01--as-deployed):
+    1. the DNS record is a **CNAME to the `*.ts.net` hostname** instead of an **A
+       record** to the tailnet IP (the SOA lookup follows into `ts.net`, which
+       answers `NOTIMP`); or
+    2. a **caching resolver** (typically the home router) still holds the old CNAME
+       for up to its TTL (~1 h) — flush with `sudo resolvectl flush-caches`, or just
+       wait for it to expire.
 *   **Postgres container keeps restarting**: The Postgres 18+ image stores data in
     `/var/lib/postgresql` (not `/var/lib/postgresql/data`) and refuses to start with
     the old mount point. Make sure `compose.yml` mounts `./pgdata:/var/lib/postgresql:rw`.
