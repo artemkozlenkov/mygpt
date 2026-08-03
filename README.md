@@ -201,7 +201,7 @@ print(u.urlopen(r).read().decode())"
 
 ### 7. Open the UI
 
-- **OpenWebUI:** https://chat.softawebit.com (auth is disabled by default — you land straight in)
+- **OpenWebUI:** https://chat.softawebit.com (sign-in required — SSO with Microsoft, local login as fallback)
 - **LiteLLM / SearxNG:** internal-only — reach them through OpenWebUI
 
 Or use the Makefile helpers: `make open-ui`, `make open-proxy`.
@@ -416,6 +416,9 @@ Both services read from a single `.env` file. Key settings:
 *   **`DEFAULT_PROMPT_SUGGESTIONS`:** JSON array of the suggestion chips shown
     in the OpenWebUI chat input (email, proofread, set tone, grammar, fact-check,
     web search, deep analysis). Edit the `title`/`content` to your own prompts.
+*   **`WEBUI_AUTH` / `WEBUI_URL` / `MICROSOFT_*`:** Authentication and SSO.
+    `WEBUI_AUTH=True` requires sign-in; the `MICROSOFT_*` variables enable
+    Microsoft Entra ID SSO. See [SSO with Microsoft Entra ID](#sso-with-microsoft-entra-id-azure).
 
 > ⚠️ **Never commit `.env`** — it contains real API keys. It is git-ignored.
 >
@@ -423,6 +426,102 @@ Both services read from a single `.env` file. Key settings:
 > first boot. After changing them in `.env`, restart the container and, if the
 > old values stick, update the corresponding `config` table rows:
 > `docker compose exec db psql -U llmproxy -d openwebui -c "UPDATE config SET value=... WHERE key='ui.prompt_suggestions';"`
+
+### SSO with Microsoft Entra ID (Azure)
+
+Sign users in with their Microsoft work/school (Entra ID) accounts. One-time
+setup in the Azure portal, then fill four variables in `.env`.
+
+**1. Register an app in Azure**
+
+1. [Azure portal](https://portal.azure.com) → **Microsoft Entra ID** →
+   **App registrations** → **New registration**.
+2. Name it (e.g. `mygpt-webui`). Under **Supported account types**, pick
+   **Accounts in this organizational directory only** (single tenant).
+3. Set the redirect URI:
+   - Platform: **Web**
+   - Redirect URI: `http://localhost:8000/oauth/microsoft/callback`
+     Must match `MICROSOFT_REDIRECT_URI` **character-for-character** (Azure
+     rejects mismatches). OpenWebUI handles both `/oauth/microsoft/callback`
+     and `/oauth/microsoft/login/callback`.
+4. **API permissions** → **Add a permission** → **Microsoft Graph** →
+   **Delegated permissions** → add **User.Read** (the default scope already
+   includes `email`, `openid`, `profile`).
+5. **Certificates & secrets** → **New client secret** → copy the **Value**
+   (it is shown only once).
+
+> ⚠️ Register the app as a **Web** platform (confidential client), *not* a
+> Single-page application — SPA registrations cause Entra error `AADSTS9002325`
+> (PKCE required) because OpenWebUI uses the authorization-code flow.
+
+**2. Copy the values into `.env`**
+
+From the app registration **Overview** page: **Application (client) ID** and
+**Directory (tenant) ID**. Plus the client secret **Value** from step 1.5.
+
+| `.env` variable | Value |
+|-----------------|-------|
+| `MICROSOFT_CLIENT_ID` | Application (client) ID |
+| `MICROSOFT_CLIENT_SECRET` | Client secret **value** |
+| `MICROSOFT_CLIENT_TENANT_ID` | Directory (tenant) ID |
+| `MICROSOFT_REDIRECT_URI` | `http://localhost:8000/oauth/microsoft/callback` |
+
+**3. Restart and sign in**
+
+```bash
+make restart
+```
+
+Open http://localhost:8000 — with no users yet, the **first** person to sign in
+creates the admin account. Click **Continue with Microsoft**, sign in with your
+Entra account, and you are the admin. Local username/password login stays
+available as a fallback (`ENABLE_LOGIN_FORM=true`); local sign-up is off
+(`ENABLE_SIGNUP=false`), SSO sign-up is on (`ENABLE_OAUTH_SIGNUP=true`).
+
+**Troubleshooting**
+
+* **`AADSTS9002325` — "Proof Key for Code Exchange is required"**: the Azure app
+  is registered as a *Single-page application*. Switch the platform to **Web**,
+  re-add the redirect URI, and regenerate the client secret.
+* **403 on `/oauth/microsoft/callback`**: `ENABLE_OAUTH_SIGNUP` must be `true`
+  so the first SSO sign-in can create an account.
+* **Bounced back to `localhost` after login**: `WEBUI_URL` must be the exact URL
+  you browse OpenWebUI at (`https://chat.softawebit.com` here; use
+  `http://localhost:8000` only if testing locally).
+* **Redirect-URI mismatch error**: the URI in Azure must exactly equal
+  `MICROSOFT_REDIRECT_URI`.
+* **Admin account**: the first account ever created (via SSO or the local form)
+  is auto-promoted to admin. To pre-create a local admin from env instead of via
+  the UI, set `WEBUI_ADMIN_EMAIL` and `WEBUI_ADMIN_PASSWORD` (creates the admin
+  on startup and disables sign-up).
+
+### Rotate credentials before production
+
+Before exposing the stack publicly, rotate every secret that has been used in
+development. `.env` is git-ignored, but these values may have leaked through
+logs, screenshots, or placeholder commits — treat them as compromised:
+
+| Secret | Where it lives | Rotate by |
+|--------|----------------|-----------|
+| `AZURE_AI_API_KEY` | `.env` — Azure AI Foundry | Regenerate in the Foundry project / key vault |
+| `XAI_API_KEY` | `.env` — xAI / Grok | Regenerate at https://console.x.ai |
+| `MICROSOFT_CLIENT_SECRET` | `.env` — Entra ID SSO | Azure → App registrations → **Certificates & secrets** → new secret |
+| `AZURE_CLIENT_SECRET` / `AZURE_CLIENT_ID` | `.env` — Caddy DNS-01 ACME | `az ad sp credential reset --id <SP-APP-ID>` — **not** the same as the SSO secret |
+| `LITELLM_MASTER_KEY` (== `OPENAI_API_KEYS` == `RAG_OPENAI_API_KEY`) | `.env` | Generate a new key; keep all three values identical |
+| Postgres password (`dbpassword9090`) | `.env` `DATABASE_URL` / `OPENWEBUI_DATABASE_URL` + `compose.yml` `POSTGRES_PASSWORD` | Set the same new value in all three, then wipe the data volume (`make clean`) — an existing `pgdata/` keeps the old password |
+| `SEARXNG_SECRET` | `.env` | `openssl rand -hex 32` |
+| `UI_USERNAME` / `UI_PASSWORD` | `.env` — LiteLLM admin UI | Choose a strong pair if you enable the admin panel |
+| `MOONSHOT_API_KEY` | `.env` | Remove the `sk-mock-*` placeholder if you don't use Moonshot |
+
+Other production hygiene:
+
+* The **gitleaks pre-commit hook** (`git config core.hooksPath .githooks`) blocks
+  *new* staged secrets, but it does **not** scrub history — rotate anything that
+  ever touched a committed file.
+* If you set `WEBUI_ADMIN_EMAIL` / `WEBUI_ADMIN_PASSWORD` to pre-create an admin,
+  use a strong password and change it after first login.
+* The SSO app secret and the Caddy service-principal secret are independent —
+  keep them separate, set expiry dates, and rotate on a schedule.
 
 ### `litellm_config.yaml`
 
