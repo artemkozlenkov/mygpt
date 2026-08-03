@@ -175,7 +175,7 @@ mode. First run takes a few minutes (image pulls + DB initialization).
 
 ```bash
 make status                          # all containers should be "Up"
-curl -s https://chat.softawebit.com  # OpenWebUI via HTTPS → 200
+curl -s http://localhost:8000        # OpenWebUI → 200
 ```
 
 LiteLLM is internal-only now, so check it from inside the container:
@@ -201,19 +201,18 @@ print(u.urlopen(r).read().decode())"
 
 ### 7. Open the UI
 
-- **OpenWebUI:** https://chat.softawebit.com (sign-in required — SSO with Microsoft, local login as fallback)
-- **LiteLLM / SearxNG:** internal-only — reach them through OpenWebUI
+- **OpenWebUI:** http://localhost:8000 (sign-in required — SSO with Microsoft, local login as fallback)
+- **LiteLLM:** http://localhost:4000
+- **SearxNG:** http://localhost:8080
 
 Or use the Makefile helpers: `make open-ui`, `make open-proxy`.
 
-> **Note on topology:** TLS is terminated by **Caddy** on host port 443. The
-> certificate for `chat.softawebit.com` is issued via the **Azure DNS-01 challenge**
-> (no inbound ports needed — this box is behind CGNAT), and Caddy reverse-proxies
-> to `openwebui:8080`. Every backend (`openwebui`, `litellm`, `searxng`, `db`,
-> `redis`) is reachable **only on the internal `my_network`**, by service name.
-> To debug an internal service from the host, exec into it
-> (`docker compose exec <svc> sh`) or run a one-off container on the network
-> (`docker run --rm --network mygpt_my_network curlimages/curl ...`).
+> **Note on topology:** the stack runs on the host's localhost ports (`8000`
+> OpenWebUI, `4000` LiteLLM, `8080` SearxNG; Postgres `5433`, Redis `6380`).
+> The `caddy` service is **not** part of the local run — it is gated behind the
+> `deploy` compose profile for the public `https://chat.softawebit.com`
+> deployment (see below), which runs elsewhere. Internally, services still talk
+> over `my_network` by service name.
 
 ### Full command reference
 
@@ -229,9 +228,9 @@ make pull           # Pull latest images
 make config         # Validate compose.yml syntax
 make clean          # Stop containers and remove volumes (⚠️ destroys data)
 make gitleaks       # Run Gitleaks security scan
-make open-ui        # Open OpenWebUI in the browser (HTTPS, tailnet only)
-make open-proxy     # Show how to reach the internal-only LiteLLM proxy
-make caddy-reload   # Reload Caddy config after editing Caddyfile
+make open-ui        # Open OpenWebUI in the browser (http://localhost:8000)
+make open-proxy     # Open LiteLLM proxy (http://localhost:4000)
+make caddy-reload   # Reload Caddy config (deploy profile only)
 ```
 
 ## HTTPS with a custom domain (Azure DNS-01) — as deployed
@@ -239,6 +238,13 @@ make caddy-reload   # Reload Caddy config after editing Caddyfile
 **Status:** live and verified — `https://chat.softawebit.com` serves OpenWebUI over
 the Tailscale tailnet with a Let's Encrypt certificate issued via the **Azure DNS-01**
 challenge. No inbound ports, no cron, no browser warnings.
+
+> This deployment is the `caddy` service, gated behind the **`deploy` compose
+> profile** — the local stack runs without it. To bring it up (e.g. on the host
+> that owns the domain): `docker compose --profile deploy up -d`. For SSO over
+> this domain, set `WEBUI_URL` and `MICROSOFT_REDIRECT_URI` to the
+> `https://chat.softawebit.com` URLs (both redirect URIs are registered in
+> Azure).
 
 ### Why this design
 
@@ -427,6 +433,39 @@ Both services read from a single `.env` file. Key settings:
 > old values stick, update the corresponding `config` table rows:
 > `docker compose exec db psql -U llmproxy -d openwebui -c "UPDATE config SET value=... WHERE key='ui.prompt_suggestions';"`
 
+### Environment files: `.env.local` vs `.env.prod`
+
+The stack reads a single active `.env` file. Two per-environment configs live
+next to it — **both git-ignored** because they hold real secrets — and you switch
+the active one with the Makefile helpers:
+
+```bash
+make env-local   # cp .env.local → .env   — local run on http://localhost:8000
+make env-prod    # cp .env.prod → .env    — domain deployment, https://chat.softawebit.com
+```
+
+The two files are identical except the domain-specific variables:
+
+| Variable | `.env.local` | `.env.prod` |
+|----------|--------------|-------------|
+| `WEBUI_URL` | `http://localhost:8000` | `https://chat.softawebit.com` |
+| `MICROSOFT_REDIRECT_URI` | `http://localhost:8000/oauth/microsoft/callback` | `https://chat.softawebit.com/oauth/microsoft/callback` |
+
+Both redirect URIs are registered in the `owui-sso` Azure app, so switching
+environments is just these two variables. API keys may differ per environment —
+rotate the ones in `.env.prod` before going fully public (see the credentials
+checklist below).
+
+**Domain deployment flow** (run on the host that owns `chat.softawebit.com`):
+
+```bash
+make env-prod                          # point .env at the domain URLs
+docker compose --profile deploy up -d  # bring up the stack incl. Caddy (DNS-01)
+```
+
+`make start` alone runs the **local** stack without Caddy — the `caddy` service
+is gated behind the `deploy` compose profile and only starts when you ask for it.
+
 ### SSO with Microsoft Entra ID (Azure)
 
 Sign users in with their Microsoft work/school (Entra ID) accounts. One-time
@@ -486,8 +525,8 @@ available as a fallback (`ENABLE_LOGIN_FORM=true`); local sign-up is off
 * **403 on `/oauth/microsoft/callback`**: `ENABLE_OAUTH_SIGNUP` must be `true`
   so the first SSO sign-in can create an account.
 * **Bounced back to `localhost` after login**: `WEBUI_URL` must be the exact URL
-  you browse OpenWebUI at (`https://chat.softawebit.com` here; use
-  `http://localhost:8000` only if testing locally).
+  you browse OpenWebUI at (`http://localhost:8000` here; use
+  `https://chat.softawebit.com` for the Caddy/domain deployment).
 * **Redirect-URI mismatch error**: the URI in Azure must exactly equal
   `MICROSOFT_REDIRECT_URI`.
 * **Admin account**: the first account ever created (via SSO or the local form)

@@ -46,15 +46,17 @@ help: ## Show this help
 	@echo ""
 	@echo "$(BOLD)Setup & maintenance$(NC)"
 	@echo "  $(GREEN)setup$(NC)     Create .env files from .example templates"
+	@echo "  $(GREEN)env-local$(NC)  Copy .env.local → .env (localhost:8000)"
+	@echo "  $(GREEN)env-prod$(NC)   Copy .env.prod → .env (chat.softawebit.com)"
 	@echo "  $(GREEN)pull$(NC)      Pull latest Docker images"
 	@echo "  $(GREEN)config$(NC)    Validate compose.yml syntax"
 	@echo "  $(GREEN)clean$(NC)     Stop containers and remove volumes"
 	@echo "  $(GREEN)gitleaks$(NC)  Run Gitleaks security scan"
 	@echo ""
 	@echo "$(BOLD)Convenience$(NC)"
-	@echo "  $(GREEN)open-ui$(NC)   Open OpenWebUI (https://chat.softawebit.com — tailnet)"
-	@echo "  $(GREEN)open-proxy$(NC) LiteLLM is internal-only; shows access commands"
-	@echo "  $(GREEN)caddy-reload$(NC) Reload Caddy config after editing Caddyfile"
+	@echo "  $(GREEN)open-ui$(NC)   Open OpenWebUI (http://localhost:8000)"
+	@echo "  $(GREEN)open-proxy$(NC) Open LiteLLM proxy (http://localhost:4000)"
+	@echo "  $(GREEN)caddy-reload$(NC) Reload Caddy config (deploy profile only)"
 	@echo "  $(GREEN)shell/svc$(NC) Open a shell in a running container (e.g. $(DIM)make shell/svc svc=db$(NC))"
 	@echo ""
 
@@ -66,9 +68,9 @@ start: ensure-env ## Start all containers in detached mode
 	docker compose -f $(COMPOSE_FILE) up -d
 	@echo ""
 	@echo "$(GREEN)✓ Containers started.$(NC)"
-	@echo "  OpenWebUI:  $(CYAN)https://chat.softawebit.com$(NC) (tailnet only)"
-	@echo "  LiteLLM:    $(DIM)internal only (make logs/svc svc=litellm)$(NC)"
-	@echo "  SearxNG:    $(DIM)internal only (web search via OpenWebUI)$(NC)"
+	@echo "  OpenWebUI:  $(CYAN)http://localhost:8000$(NC)"
+	@echo "  LiteLLM:    $(CYAN)http://localhost:4000$(NC)"
+	@echo "  SearxNG:    $(CYAN)http://localhost:8080$(NC)"
 
 .PHONY: stop
 stop: ## Stop all containers
@@ -104,9 +106,24 @@ logs/svc: ## Tail logs from one service  (make logs/svc svc=<name>)
 .PHONY: ensure-env
 ensure-env:
 	@if [ ! -f .env ]; then \
-		echo "$(YELLOW)…$(NC) .env not found — creating from .env.example"; \
-		$(MAKE) setup; \
+		if [ -f .env.local ]; then \
+			cp .env.local .env; \
+			echo "  $(GREEN)✓$(NC) Created .env from .env.local"; \
+		else \
+			echo "$(YELLOW)…$(NC) .env not found — creating from .env.example"; \
+			$(MAKE) setup; \
+		fi; \
 	fi
+
+.PHONY: env-local
+env-local: ## Copy .env.local → .env (local run on http://localhost:8000)
+	@cp .env.local .env
+	@echo "$(GREEN)✓$(NC) Active .env set to LOCAL (http://localhost:8000)"
+
+.PHONY: env-prod
+env-prod: ## Copy .env.prod → .env (domain deployment, https://chat.softawebit.com)
+	@cp .env.prod .env
+	@echo "$(GREEN)✓$(NC) Active .env set to PROD (https://chat.softawebit.com)"
 
 .PHONY: setup
 setup: ## Create .env file from .env.example (will NOT overwrite existing)
@@ -158,16 +175,14 @@ gitleaks: ## Run Gitleaks security scan (local binary if present, else pinned Do
 # ─── Convenience ──────────────────────────────────────────────────────────────
 
 .PHONY: open-ui
-open-ui: ## Open OpenWebUI in browser (HTTPS, tailnet only)
+open-ui: ## Open OpenWebUI in browser (http://localhost:8000)
 	@echo "$(BOLD)Opening OpenWebUI...$(NC)"
-	$(OPEN) https://chat.softawebit.com
+	$(OPEN) http://localhost:8000
 
 .PHONY: open-proxy
-open-proxy: ## Show how to reach the internal-only LiteLLM proxy
-	@echo "$(BOLD)LiteLLM is internal-only (not exposed over HTTPS).$(NC)"
-	@echo "  Health:    docker compose exec litellm python3 -c \"import urllib.request as u; print(u.urlopen('http://localhost:4000/health/liveliness').read().decode())\""
-	@echo "  Shell:     make shell/svc svc=litellm"
-	@echo "  Logs:      make logs/svc svc=litellm"
+open-proxy: ## Open LiteLLM proxy in browser (http://localhost:4000)
+	@echo "$(BOLD)Opening LiteLLM...$(NC)"
+	$(OPEN) http://localhost:4000
 
 .PHONY: shell/svc
 shell/svc: ## Open a shell in a running container  (make shell/svc svc=<name>)

@@ -1,6 +1,10 @@
 services:
   caddy:
     container_name: caddy
+    # Only started explicitly for the public/domain deployment
+    # (`docker compose --profile deploy up -d`) — the local stack runs on
+    # localhost without Caddy.
+    profiles: ["deploy"]
     # Custom image with the caddy-dns/azure module (DNS-01 for chat.softawebit.com)
     build: ./caddy
     restart: unless-stopped
@@ -27,6 +31,8 @@ services:
       - ./litellm_config.yaml:/app/config.yaml
     env_file: .env
     command: ["--config", "/app/config.yaml", "--detailed_debug"]
+    ports:
+      - "4000:4000"
     networks:
       - my_network
 
@@ -35,6 +41,8 @@ services:
     image: ghcr.io/open-webui/open-webui:0.11.0
     volumes:
       - open-webui:/app/backend/data
+    ports:
+      - "8000:8080"
     depends_on:
       - db
     env_file: .env
