@@ -20,6 +20,14 @@ services:
       - openwebui
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
 
   litellm:
     container_name: litellm
@@ -35,6 +43,14 @@ services:
       - "4000:4000"
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
 
   openwebui:
     container_name: webui
@@ -54,6 +70,14 @@ services:
     restart: unless-stopped
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
 
   kokoro-web:
     container_name: kokoro-web
@@ -61,14 +85,23 @@ services:
     # API that OpenWebUI uses for Text-to-Speech. No API keys or cloud needed.
     image: ghcr.io/eduardolat/kokoro-web:0.1.3
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    # No host port — internal-only on the Docker network (port 3000 on this host
+    # is taken by the reactive_resume project). OpenWebUI reaches it at
+    # http://kokoro-web:3000 by service name.
     environment:
       KW_SECRET_API_KEY: ${KW_SECRET_API_KEY}
     volumes:
       - kokoro-cache:/kokoro/cache
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.1"
+          memory: 128M
 
   db:
     container_name: db
@@ -82,6 +115,14 @@ services:
       - ./initdb.d:/docker-entrypoint-initdb.d
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
 
   redis:
     container_name: redis
@@ -89,6 +130,14 @@ services:
     restart: unless-stopped
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.01"
+          memory: 32M
 
   searxng:
     container_name: searxng
@@ -110,6 +159,14 @@ services:
         max-file: "1"
     networks:
       - my_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.1"
+          memory: 128M
 
 volumes:
   litellm:
