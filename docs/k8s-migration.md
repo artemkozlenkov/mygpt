@@ -1,11 +1,10 @@
 # Helm Migration Plan: compose → k3s
 
-Status: **chart deployed & verified (ingress off)**. Compose still serves in
-parallel. cert-manager + Azure DNS-01 ClusterIssuer live; ingress-nginx staged
-(ClusterIP). `helm secrets install mygpt` deployed all workloads — DB databases
-+ pgvector, litellm health/models, searxng search, kokoro TTS, openwebui health
-all verified. Remaining: data migration → flip ingress to LoadBalancer →
-cutover → decommission. See also the [secret rotation
+Status: **data migrated — ready for cutover**. Compose still serves. k8s stack
+now holds the compose data (DBs restored: 1 user, 8 chats, config + web-search
+default intact; uploads/vector_db volume copied); all pods verified. Remaining:
+the flip — stop caddy → ingress-nginx LoadBalancer → enable ingress → verify →
+decommission. See also the [secret rotation
 strategy](../README.md#secret-rotation-strategy).
 
 ## Current state
