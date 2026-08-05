@@ -40,4 +40,6 @@ Thumbs.db
 .env.*
 !.env.example
 pgdata/
+# Local DB backups (chat_user_backup_*.sql)
+/chat_user_backup_*.sql
 
