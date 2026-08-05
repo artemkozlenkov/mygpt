@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mygpt.fullname" . }}-kokoro
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kokoro-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "kokoro-web") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "kokoro-web") | nindent 8 }}
+    spec:
+      containers:
+        - name: kokoro-web
+          image: {{ .Values.images.kokoroWeb }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: KW_SECRET_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mygpt.secretName" . }}
+                  key: KW_SECRET_API_KEY
+          volumeMounts:
+            - name: kokoro-cache
+              mountPath: /kokoro/cache
+          resources:
+            {{- toYaml .Values.resources.kokoro | nindent 12 }}
+      volumes:
+        # Neural TTS model cache — rebuildable, so emptyDir is fine.
+        - name: kokoro-cache
+          emptyDir: {}

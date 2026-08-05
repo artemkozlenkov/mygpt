@@ -1,0 +1,4 @@
+# Patterns to ignore when building Helm packages (helm package)
+.git/
+*.tgz
+values.secrets.yaml

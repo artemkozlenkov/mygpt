@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "mygpt.fullname" . }}-db
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: db
+spec:
+  serviceName: {{ include "mygpt.fullname" . }}-db
+  replicas: 1
+  selector:
+    matchLabels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "db") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "db") | nindent 8 }}
+    spec:
+      # postgres runs as uid/gid 999; make the PVC group-writable for it.
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: db
+          image: {{ .Values.images.db }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: http
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mygpt.secretName" . }}
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mygpt.secretName" . }}
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            {{- toYaml .Values.resources.db | nindent 12 }}
+      volumes:
+        - name: initdb
+          configMap:
+            name: {{ include "mygpt.fullname" . }}-initdb
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.db }}

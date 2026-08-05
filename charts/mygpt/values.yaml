@@ -1,0 +1,140 @@
+# myGPT umbrella chart values.
+# Real secrets go in a gitignored values.secrets.yaml:
+#   helm install mygpt . -f values.secrets.yaml
+# (or set secrets.existingSecret to a pre-created Secret and leave data empty).
+
+namespace: mygpt
+
+images:
+  litellm: ghcr.io/berriai/litellm:v1.94.0
+  openwebui: ghcr.io/open-webui/open-webui:0.11.0
+  kokoroWeb: ghcr.io/eduardolat/kokoro-web:0.1.3
+  db: pgvector/pgvector:pg18
+  redis: redis:8.8.1
+  searxng: docker.io/searxng/searxng:2026.7.28-c01178d03
+
+# Resources per service — mirrors the compose.yml deploy.resources caps.
+resources:
+  litellm:
+    limits: { cpu: "1", memory: 2Gi }
+    requests: { cpu: 250m, memory: 256Mi }
+  openwebui:
+    limits: { cpu: "2", memory: 2Gi }
+    requests: { cpu: 500m, memory: 512Mi }
+  kokoro:
+    limits: { cpu: "1", memory: 1Gi }
+    requests: { cpu: 100m, memory: 128Mi }
+  db:
+    limits: { cpu: "2", memory: 2Gi }
+    requests: { cpu: 250m, memory: 512Mi }
+  redis:
+    limits: { cpu: 500m, memory: 256Mi }
+    requests: { cpu: 10m, memory: 32Mi }
+  searxng:
+    limits: { cpu: "1", memory: 1Gi }
+    requests: { cpu: 100m, memory: 128Mi }
+
+secrets:
+  # If set, use this pre-created Secret instead of rendering one from data.
+  existingSecret: ""
+  # .env equivalent. Values default empty; override via values.secrets.yaml.
+  data:
+    # LiteLLM + DB
+    DATABASE_URL: ""
+    OPENWEBUI_DATABASE_URL: ""
+    LITELLM_MASTER_KEY: ""
+    LITELLM_LOG: "INFO"
+    STORE_MODEL_IN_DB: "True"
+    REDIS_URL: "redis://redis:6379/0"
+    REDIS_SSL: "False"
+    # LLM providers
+    AZURE_AI_API_BASE: ""
+    AZURE_AI_API_KEY: ""
+    AZURE_API_VERSION: "2024-05-01-preview"
+    GEMINI_API_KEY: ""
+    MOONSHOT_API_KEY: ""
+    XAI_API_BASE: "https://api.x.ai/v1"
+    XAI_API_KEY: ""
+    # LiteLLM admin panel
+    UI_USERNAME: ""
+    UI_PASSWORD: ""
+    # Microsoft Entra ID SSO
+    MICROSOFT_CLIENT_ID: ""
+    MICROSOFT_CLIENT_SECRET: ""
+    MICROSOFT_CLIENT_TENANT_ID: ""
+    MICROSOFT_REDIRECT_URI: "http://localhost:8000/oauth/microsoft/callback"
+    # OpenWebUI auth
+    WEBUI_AUTH: "True"
+    WEBUI_URL: "http://localhost:8000"
+    ENABLE_LOGIN_FORM: "true"
+    ENABLE_SIGNUP: "false"
+    ENABLE_OAUTH_SIGNUP: "true"
+    ADMIN_EMAIL: "admin@admin.com"
+    DEFAULT_USER_ROLE: "user"
+    SHOW_ADMIN_DETAILS: "false"
+    # OpenWebUI general
+    WEBUI_NAME: "MY GPT"
+    GLOBAL_LOG_LEVEL: "ERROR"
+    # Backend endpoint (points at the in-cluster litellm service)
+    OPENAI_API_BASE_URL: "http://litellm:4000"
+    OPENAI_API_KEYS: ""
+    # Model config
+    DEFAULT_MODELS: "gpt-5.6-luna"
+    ENABLE_OLLAMA_API: "False"
+    ENABLE_EVALUATION_ARENA_MODELS: "False"
+    DEFAULT_MODEL_METADATA: '{"defaultFeatureIds":["web_search"],"capabilities":{"web_search":true}}'
+    # Web search (searxng)
+    ENABLE_WEB_SEARCH: "True"
+    ENABLE_SEARCH_QUERY_GENERATION: "True"
+    WEB_SEARCH_ENGINE: "searxng"
+    WEB_SEARCH_RESULT_COUNT: "3"
+    WEB_SEARCH_CONCURRENT_REQUESTS: "10"
+    SEARXNG_QUERY_URL: "http://searxng:8080/search?q=<query>"
+    SEARXNG_SECRET: ""
+    # Embeddings (RAG)
+    RAG_EMBEDDING_MODEL: "text-embedding-3-large"
+    RAG_EMBEDDING_MODEL_AUTO_UPDATE: "True"
+    RAG_EMBEDDING_ENGINE: "openai"
+    PDF_EXTRACT_IMAGES: "True"
+    RAG_OPENAI_API_BASE_URL: "http://litellm:4000/v1"
+    RAG_OPENAI_API_KEY: ""
+    # Speech (Whisper STT + Kokoro TTS)
+    WHISPER_MODEL: "small"
+    WHISPER_MULTILINGUAL: "True"
+    AUDIO_TTS_ENGINE: "openai"
+    AUDIO_TTS_OPENAI_API_BASE_URL: "http://kokoro-web:3000/api/v1"
+    AUDIO_TTS_MODEL: "model_q8f16"
+    AUDIO_TTS_VOICE: "af_heart"
+    KW_SECRET_API_KEY: ""
+
+postgres:
+  user: llmproxy
+  # Must match the credentials embedded in DATABASE_URL / OPENWEBUI_DATABASE_URL.
+  password: ""
+
+searxng:
+  baseUrl: "http://localhost/"
+  uwsgiWorkers: 4
+  uwsgiThreads: 4
+
+# Cluster-internal Services (service-name DNS matches compose my_network).
+services:
+  - { name: litellm, port: 4000 }
+  - { name: openwebui, port: 8080 }
+  - { name: kokoro-web, port: 3000 }
+  - { name: db, port: 5432 }
+  - { name: redis, port: 6379 }
+  - { name: searxng, port: 8080 }
+
+storage:
+  db: 8Gi
+  openwebui: 8Gi
+  # kokoro cache is emptyDir (rebuildable); not listed here.
+
+# Ingress — replaces Caddy. Enable only during cutover (Phase 5) after Caddy
+# has released host 80/443. Requires ingress-nginx + cert-manager (Phase 0).
+ingress:
+  enabled: false
+  className: nginx
+  host: chat.softawebit.com
+  certIssuer: letsencrypt-azure-dns01

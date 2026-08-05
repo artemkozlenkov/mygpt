@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mygpt.fullname" . }}-searxng
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: searxng
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "searxng") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "searxng") | nindent 8 }}
+    spec:
+      securityContext:
+        # Mirror the compose cap_drop/cap_add hardening for searxng.
+        runAsNonRoot: true
+      containers:
+        - name: searxng
+          image: {{ .Values.images.searxng }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: {{ include "mygpt.secretName" . }}
+          env:
+            - name: SEARXNG_BASE_URL
+              value: {{ .Values.searxng.baseUrl | quote }}
+            - name: UWSGI_WORKERS
+              value: {{ .Values.searxng.uwsgiWorkers | quote }}
+            - name: UWSGI_THREADS
+              value: {{ .Values.searxng.uwsgiThreads | quote }}
+          securityContext:
+            capabilities:
+              drop: ["ALL"]
+              add: ["CHOWN", "SETGID", "SETUID"]
+          volumeMounts:
+            - name: searxng-config
+              mountPath: /etc/searxng
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources.searxng | nindent 12 }}
+      volumes:
+        - name: searxng-config
+          configMap:
+            name: {{ include "mygpt.fullname" . }}-searxng

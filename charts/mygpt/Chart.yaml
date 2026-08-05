@@ -1,0 +1,13 @@
+apiVersion: v2
+name: mygpt
+description: Umbrella chart replacing the docker-compose myGPT stack (OpenWebUI + LiteLLM + Kokoro TTS + pgvector Postgres + Redis + SearXNG).
+type: application
+version: 0.1.0
+appVersion: "0.11.0"
+keywords:
+  - openwebui
+  - litellm
+  - searxng
+  - rag
+  - llm
+home: https://chat.softawebit.com

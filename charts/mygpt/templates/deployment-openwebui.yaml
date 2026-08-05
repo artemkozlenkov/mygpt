@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mygpt.fullname" . }}-openwebui
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: openwebui
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "openwebui") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "openwebui") | nindent 8 }}
+    spec:
+      containers:
+        - name: openwebui
+          image: {{ .Values.images.openwebui }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: {{ include "mygpt.secretName" . }}
+          env:
+            # compose overrides DATABASE_URL with OpenWebUI's own DB; mirror it.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mygpt.secretName" . }}
+                  key: OPENWEBUI_DATABASE_URL
+            # TTS API key for the Kokoro Web sidecar (must match KW_SECRET_API_KEY)
+            - name: AUDIO_TTS_OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mygpt.secretName" . }}
+                  key: KW_SECRET_API_KEY
+          volumeMounts:
+            - name: openwebui-data
+              mountPath: /app/backend/data
+          resources:
+            {{- toYaml .Values.resources.openwebui | nindent 12 }}
+      volumes:
+        - name: openwebui-data
+          persistentVolumeClaim:
+            claimName: {{ include "mygpt.fullname" . }}-openwebui

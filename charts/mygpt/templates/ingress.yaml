@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled }}
+# Replaces the compose Caddy. Requires cert-manager with an Azure DNS-01
+# ClusterIssuer (see docs/k8s-migration.md Phase 0) and an ingress controller.
+# Enable only during cutover (Phase 5), after Caddy has released host 80/443.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "mygpt.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.certIssuer | quote }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ include "mygpt.fullname" . }}-tls
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openwebui
+                port:
+                  number: 8080
+{{- end }}

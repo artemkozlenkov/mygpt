@@ -1,0 +1,14 @@
+myGPT deployed to namespace {{ .Values.namespace }}.
+
+  Get the status:    kubectl -n {{ .Values.namespace }} get pods
+  Port-forward UI:   kubectl -n {{ .Values.namespace }} port-forward svc/openwebui 8000:8080
+
+{{- if .Values.ingress.enabled }}
+  HTTPS: https://{{ .Values.ingress.host }}
+{{- else }}
+  Ingress is DISABLED (ingress.enabled=false). Enable it during cutover, after
+  Caddy has stopped, with: helm upgrade mygpt . --set ingress.enabled=true
+{{- end }}
+
+Secrets come from .Values.secrets.data. Supply the real values with
+  -f values.secrets.yaml  (gitignored)   or set secrets.existingSecret.

@@ -1,0 +1,17 @@
+{{- range .Values.services }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace }}
+  labels: {{- include "mygpt.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ .name }}
+spec:
+  selector: {{- include "mygpt.selectorLabels" (dict "root" $ "component" .name) | nindent 4 }}
+  ports:
+    - port: {{ .port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+---
+{{- end }}

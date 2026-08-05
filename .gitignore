@@ -42,4 +42,6 @@ Thumbs.db
 pgdata/
 # Local DB backups (chat_user_backup_*.sql)
 /chat_user_backup_*.sql
+# Helm chart secret values (mirrors .env handling)
+charts/mygpt/values.secrets.yaml
 

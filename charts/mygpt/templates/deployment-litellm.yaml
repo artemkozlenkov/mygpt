@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mygpt.fullname" . }}-litellm
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: litellm
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "litellm") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "litellm") | nindent 8 }}
+    spec:
+      containers:
+        - name: litellm
+          image: {{ .Values.images.litellm }}
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/app/config.yaml", "--detailed_debug"]
+          ports:
+            - containerPort: 4000
+              name: http
+          envFrom:
+            - secretRef:
+                name: {{ include "mygpt.secretName" . }}
+          volumeMounts:
+            - name: litellm-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources.litellm | nindent 12 }}
+      volumes:
+        - name: litellm-config
+          configMap:
+            name: {{ include "mygpt.fullname" . }}-litellm-config
