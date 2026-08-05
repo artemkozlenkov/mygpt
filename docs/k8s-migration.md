@@ -1,10 +1,11 @@
 # Helm Migration Plan: compose → k3s
 
-Status: **Phase 0 complete**. Compose still serves. cert-manager + Azure DNS-01
-ClusterIssuer `letsencrypt-azure-dns01` live (test cert for chat.softawebit.com
-issued via the mygpt-caddy SPN); ingress-nginx installed in **staged ClusterIP
-mode** (no host 80/443). Remaining: flip ingress to LoadBalancer → data
-migration → cutover → decommission. See also the [secret rotation
+Status: **chart deployed & verified (ingress off)**. Compose still serves in
+parallel. cert-manager + Azure DNS-01 ClusterIssuer live; ingress-nginx staged
+(ClusterIP). `helm secrets install mygpt` deployed all workloads — DB databases
++ pgvector, litellm health/models, searxng search, kokoro TTS, openwebui health
+all verified. Remaining: data migration → flip ingress to LoadBalancer →
+cutover → decommission. See also the [secret rotation
 strategy](../README.md#secret-rotation-strategy).
 
 ## Current state

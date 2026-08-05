@@ -13,9 +13,8 @@ spec:
     metadata:
       labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "searxng") | nindent 8 }}
     spec:
-      securityContext:
-        # Mirror the compose cap_drop/cap_add hardening for searxng.
-        runAsNonRoot: true
+      # The searxng image runs as root (its uwsgi drops to the "searxng" user
+      # internally per uwsgi.ini), so runAsNonRoot is not applicable here.
       containers:
         - name: searxng
           image: {{ .Values.images.searxng }}
