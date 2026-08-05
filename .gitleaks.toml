@@ -7,11 +7,12 @@ useDefault = true
 
 # Allowlist
 #
-# searxng/settings.yml historically contained the local SearxNG session-signing
-# key (server.secret_key). It is NOT a cloud credential — it only signs local
-# SearxNG session cookies for the self-hosted instance. The key now lives in the
-# git-ignored .env file (SEARXNG_SECRET); the tracked file holds a placeholder.
+# charts/mygpt/files/searxng/settings.yml historically contained the local
+# SearxNG session-signing key (server.secret_key). It is NOT a cloud
+# credential — it only signs local SearxNG session cookies for the self-hosted
+# instance. The real key lives in the SOPS-encrypted chart secret
+# (SEARXNG_SECRET); the tracked file holds a placeholder.
 [allowlist]
 paths = [
-  '''searxng/settings.yml''',
+  '''charts/mygpt/files/searxng/settings.yml''',
 ]

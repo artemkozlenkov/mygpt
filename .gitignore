@@ -12,11 +12,8 @@ pip-delete-this-directory.txt
 
 # Docker
 **/Dockerfile
-# Our Caddy image build (caddy-dns/azure) — must be tracked
-!caddy/Dockerfile
 **/docker-compose.yml
 **/.env
-**/litellm_config.yaml  # Include if sensitive data is not already excluded
 **/*.image.tar
 **/build/
 
@@ -38,9 +35,10 @@ Thumbs.db
 *.pem
 .env
 .env.*
-!.env.example
 pgdata/
 # Local DB backups (chat_user_backup_*.sql)
 /chat_user_backup_*.sql
+# Leftover compose-era searxng runtime dir (uid 977; chart owns config in files/)
+/searxng/
 # values.secrets.yaml is SOPS-encrypted with Azure Key Vault (.sops.yaml) — COMMITTED.
 

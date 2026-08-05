@@ -109,6 +109,23 @@ charts/mygpt/
 5. Rollback = `helm rollback` + `docker compose up -d caddy`.
 6. **Decommission:** `docker compose down`, prune old volumes, retire `./caddy` build + `Caddyfile`, move `compose.yml` to an archive path, update Makefile/README.
 
+## Adding a new service / domain (post-cutover)
+
+The certificate pipeline (ClusterIssuer `letsencrypt-azure-dns01`) and the
+LoadBalancer (ingress-nginx) are shared — onboarding a new service with its own
+domain is just DNS + an Ingress. Full recipe with manifests:
+[README → "Adding a new service with its own domain"](../README.md#adding-a-new-service-with-its-own-domain).
+
+The three steps, in short:
+
+1. **A record** in the `softawebit.com` zone → `100.123.171.13` (the host tailnet
+   IP). `_acme-challenge` TXT is managed automatically by cert-manager.
+2. **Deploy** the service (Deployment + Service) in its namespace.
+3. **Ingress** with `cert-manager.io/cluster-issuer: letsencrypt-azure-dns01`
+   → cert-manager issues a Let's Encrypt cert via DNS-01; ingress-nginx serves
+   it on 443. Works for any domain inside the zone (CGNAT needs no inbound
+   ports).
+
 ## Known risks & pitfalls
 
 - **80/443 handover** is the single irreversible moment — Caddy must stop before ingress-nginx binds. Keep Caddy up until Phase 5 step 2.
