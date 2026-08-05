@@ -2,6 +2,13 @@
 
 This repository provides a comprehensive setup for a hybrid GPT chat application designed for personal use, leveraging AI models from multiple cloud providers. It combines a user-friendly frontend (OpenWebUI), a robust proxy (LiteLLM), and supporting services (PostgreSQL, Redis, SearxNG) to deliver a high-performance, customizable AI experience.
 
+> **⚠️ Deployment moved to k3s + Helm (2026-08-05).** The live app runs at
+> **https://chat.softawebit.com** on a single-node k3s cluster via the
+> `charts/mygpt` Helm chart, with secrets **SOPS-encrypted** using Azure Key
+> Vault. The Docker Compose deployment documented below was retired at the
+> cutover — see `docs/k8s-migration.md` for the migration and the
+> [secret rotation strategy](#secret-rotation-strategy).
+
 ## Architectural Overview: Multicloud Hybrid AI
 
 This application is built with a multicloud hybrid architecture, allowing you to utilize the strengths of different AI models from various cloud providers (e.g., OpenAI, Azure, Google Gemini) through a single, unified interface. The application's architecture ensures optimal performance, flexibility, and customizability for your personal AI needs.
@@ -64,18 +71,21 @@ This application is built with a multicloud hybrid architecture, allowing you to
 
 ## Files
 
-*   **`Makefile`:** The management Makefile (use `make` to see available targets).
-*   **`compose.yml`:** Defines the services for the LLM stack.
-*   **`.env.example`:** Example environment file (copy to `.env` and fill in your API keys).
-*   **`.env`:** Environment configuration for both LiteLLM and OpenWebUI (git-ignored).
-*   **`litellm_config.yaml`:** LiteLLM model list (Azure AI Foundry + xAI).
-*   **`initdb.d/`:** PostgreSQL initialization scripts.
-*   **`searxng/`:** SearxNG configuration files.
+*   **`charts/mygpt/`:** The umbrella Helm chart — the **current deployment**.
+    Configs live in `files/` (litellm, initdb, searxng); secrets in the
+    SOPS-encrypted `values.secrets.yaml` (see `.sops.yaml`).
+*   **`.sops.yaml`:** SOPS creation rules (Azure Key Vault) for chart secrets.
+*   **`docs/k8s-migration.md`:** The compose → k3s/Helm migration + status.
+*   **`.env.example`:** Reference env vars (the compose-era `.env` template;
+    the Helm stack sources these from `values.secrets.yaml` instead).
+*   **`litellm_config.yaml`:** LiteLLM model list — source of the chart's
+    `files/litellm_config.yaml` copy.
+*   **`searxng/`:** SearxNG config — source of the chart's `files/searxng/` copy.
 *   **`.gitleaks.toml`:** Gitleaks configuration.
 *   **`.githooks/`:** Git hooks (pre-commit secret scan).
-*   **`.sops.yaml`:** SOPS creation rules (Azure Key Vault) for chart secrets.
-*   **`charts/mygpt/`:** Umbrella Helm chart for the k3s deployment (WIP).
-*   **`docs/k8s-migration.md`:** The compose → k3s/Helm migration plan.
+*   **`LICENSE.md`:** License.
+*   Removed at decommission: `compose.yml`, `Makefile`, `Caddyfile`, `caddy/`,
+    `initdb.d/` (all in git history).
 
 ## Quick Start on a New Machine
 

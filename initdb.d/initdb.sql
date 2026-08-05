@@ -1,8 +1,0 @@
-CREATE DATABASE openwebui;
-CREATE DATABASE litellm;
-
-\c litellm;
-CREATE EXTENSION IF NOT EXISTS vector;
-
-\c openwebui;
-CREATE EXTENSION IF NOT EXISTS vector;
