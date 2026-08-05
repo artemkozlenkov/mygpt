@@ -1,0 +1,7 @@
+# SOPS creation rules — secrets encrypted with Azure Key Vault (KMS).
+# Key: https://mygpt-sops.vault.azure.net/keys/sops
+# Operator must have "Key Vault Crypto Officer" on the vault and an az login /
+# service-principal session. Decrypt is client-side via `helm secrets`.
+creation_rules:
+  - path_regex: charts/mygpt/values\.secrets\.yaml$
+    azure_keyvault: https://mygpt-sops.vault.azure.net/keys/sops/f2e1735b408e4c51b6eb50a64933da8d

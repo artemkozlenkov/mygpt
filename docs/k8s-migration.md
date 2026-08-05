@@ -50,9 +50,27 @@ Build `charts/mygpt` — a single chart rendering each compose service as a k8s 
 
 ## Phase 2 — Config & secrets
 
-- `.env` → Secret `mygpt-secrets`. `.env` is gitignored, so the chart must not commit it — use gitignored `values.secrets.yaml` or pre-create the Secret (`kubectl create secret`).
+- `.env` → Secret `mygpt-secrets`. Secrets are **SOPS-encrypted with Azure Key Vault** and committed as `charts/mygpt/values.secrets.yaml` (see [SOPS + Azure KMS](#sops--azure-kms) below). `.env` itself stays gitignored and is only the compose-time source.
 - `litellm_config.yaml`, `initdb.sql`, `searxng/*` → ConfigMaps.
 - `Caddyfile` logic → `Ingress` for `chat.softawebit.com` → `openwebui` Service.
+
+### SOPS + Azure KMS
+
+Secrets are encrypted at rest in git with [SOPS](https://github.com/getsops/sops) using an **Azure Key Vault** key, and decrypted **client-side** at install time by the `helm-secrets` plugin. No plaintext secrets are ever committed.
+
+- **Key Vault:** `mygpt-sops` (rg-dns-prod, swedencentral); key `sops` — full URL pinned in `.sops.yaml`.
+- **Operator access:** the deploying identity needs `Key Vault Crypto Officer` on the vault (granted to the signed-in Azure user) plus an `az login` / SPN session.
+- **Tooling (on the operator host):** `sops` (3.13.3) + `helm-secrets` plugin v4.7.7 installed from the release `.tgz` (Helm v4 requires tgz plugin installs, not repo URLs).
+- **Workflow:**
+  ```bash
+  # edit → encrypt → commit
+  helm secrets decrypt charts/mygpt/values.secrets.yaml   # → edits the file in place to plaintext
+  # ... edit ...
+  helm secrets encrypt charts/mygpt/values.secrets.yaml   # → back to ciphertext, then commit
+  # install / upgrade (decrypts on the fly)
+  helm secrets upgrade mygpt charts/mygpt -f charts/mygpt/values.secrets.yaml --namespace mygpt
+  ```
+- **Rotation:** rotate the KV key version → update `.sops.yaml` → re-encrypt. If the key is lost, secrets are unrecoverable — keep the KV durable and backed up.
 
 ## Phase 3 — Chart skeleton
 

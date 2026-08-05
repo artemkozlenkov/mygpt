@@ -1,6 +1,7 @@
 # myGPT umbrella chart values.
-# Real secrets go in a gitignored values.secrets.yaml:
-#   helm install mygpt . -f values.secrets.yaml
+# Real secrets live in charts/mygpt/values.secrets.yaml — SOPS-encrypted with
+# Azure Key Vault (.sops.yaml) and committed. helm-secrets decrypts on the fly:
+#   helm secrets upgrade mygpt charts/mygpt -f charts/mygpt/values.secrets.yaml
 # (or set secrets.existingSecret to a pre-created Secret and leave data empty).
 
 namespace: mygpt
