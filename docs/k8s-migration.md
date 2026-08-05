@@ -1,10 +1,10 @@
 # Helm Migration Plan: compose → k3s
 
-Status: **data migrated — ready for cutover**. Compose still serves. k8s stack
-now holds the compose data (DBs restored: 1 user, 8 chats, config + web-search
-default intact; uploads/vector_db volume copied); all pods verified. Remaining:
-the flip — stop caddy → ingress-nginx LoadBalancer → enable ingress → verify →
-decommission. See also the [secret rotation
+Status: **CUTOVER COMPLETE (2026-08-05)**. `https://chat.softawebit.com` now
+serves OpenWebUI from k3s via ingress-nginx (valid Let's Encrypt cert, DNS-01,
+routed over the tailnet). Health `{"status":true}`; compose Caddy stopped.
+Remaining (optional): decommission compose — `docker compose down`, retire
+`./caddy` + `Caddyfile`. See also the [secret rotation
 strategy](../README.md#secret-rotation-strategy).
 
 ## Current state
