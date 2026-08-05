@@ -73,6 +73,9 @@ This application is built with a multicloud hybrid architecture, allowing you to
 *   **`searxng/`:** SearxNG configuration files.
 *   **`.gitleaks.toml`:** Gitleaks configuration.
 *   **`.githooks/`:** Git hooks (pre-commit secret scan).
+*   **`.sops.yaml`:** SOPS creation rules (Azure Key Vault) for chart secrets.
+*   **`charts/mygpt/`:** Umbrella Helm chart for the k3s deployment (WIP).
+*   **`docs/k8s-migration.md`:** The compose → k3s/Helm migration plan.
 
 ## Quick Start on a New Machine
 
@@ -347,6 +350,44 @@ Routes live in `Caddyfile`. After editing, reload without downtime:
 make caddy-reload
 ```
 
+## Kubernetes (k3s) + Helm deployment (in progress)
+
+Docker Compose remains the **current runtime**; a k3s + Helm path is being built
+to replace it. Status and step-by-step plan: `docs/k8s-migration.md`.
+
+- **Cluster:** single-node k3s on this host (Traefik disabled; host 80/443 stays
+  with Caddy until cutover). `kubectl`/`helm` work as your user via
+  `KUBECONFIG=/etc/rancher/k3s/k3s.yaml`.
+- **Chart:** `charts/mygpt/` — an umbrella chart that renders every service with
+  the same images and resource caps as compose. Validated with `helm lint` +
+  server-side dry-run; **not installed yet** (compose still serves).
+- **Secrets:** SOPS-encrypted with Azure Key Vault (see below) — no plaintext
+  secrets in git.
+
+### SOPS + Azure KMS
+
+`charts/mygpt/values.secrets.yaml` is **SOPS ciphertext**, committed to the repo
+(it is the Helm-side source of secrets, alongside the compose-side `.env`).
+Decryption happens **client-side** at install time via the `helm-secrets`
+plugin, using the Azure Key Vault key `mygpt-sops/sops` (pinned in `.sops.yaml`).
+Operators need an `az login` (or SPN) session with **Key Vault Crypto Officer**
+on the vault.
+
+Workflow:
+
+```bash
+helm secrets decrypt charts/mygpt/values.secrets.yaml   # edit in plaintext
+# ... edit ...
+helm secrets encrypt charts/mygpt/values.secrets.yaml   # back to ciphertext
+git add charts/mygpt/values.secrets.yaml && git commit  # commit encrypted
+
+helm secrets upgrade mygpt charts/mygpt \
+  -f charts/mygpt/values.secrets.yaml --namespace mygpt
+```
+
+Rotating the SOPS key = new Azure Key Vault key version → update `.sops.yaml` →
+re-encrypt. **If the KV key is lost, the encrypted secrets are unrecoverable.**
+
 ## Configuration
 
 ### `compose.yml`
@@ -422,6 +463,10 @@ Both services read from a single `.env` file. Key settings:
 *   **`DEFAULT_PROMPT_SUGGESTIONS`:** JSON array of the suggestion chips shown
     in the OpenWebUI chat input (email, proofread, set tone, grammar, fact-check,
     web search, deep analysis). Edit the `title`/`content` to your own prompts.
+*   **`DEFAULT_MODEL_METADATA`:** JSON `{defaultFeatureIds, capabilities}` applied
+    to every model — turns the per-chat **web-search toggle ON by default**
+    (`{"defaultFeatureIds":["web_search"],"capabilities":{"web_search":true}}`).
+    The DB `config` table (`models.default_metadata`) overrides env once written.
 *   **`WEBUI_AUTH` / `WEBUI_URL` / `MICROSOFT_*`:** Authentication and SSO.
     `WEBUI_AUTH=True` requires sign-in; the `MICROSOFT_*` variables enable
     Microsoft Entra ID SSO. See [SSO with Microsoft Entra ID](#sso-with-microsoft-entra-id-azure).
@@ -534,33 +579,46 @@ available as a fallback (`ENABLE_LOGIN_FORM=true`); local sign-up is off
   the UI, set `WEBUI_ADMIN_EMAIL` and `WEBUI_ADMIN_PASSWORD` (creates the admin
   on startup and disables sign-up).
 
-### Rotate credentials before production
+### Secret rotation strategy
 
-Before exposing the stack publicly, rotate every secret that has been used in
-development. `.env` is git-ignored, but these values may have leaked through
-logs, screenshots, or placeholder commits — treat them as compromised:
+Secrets live in **two stores** — keep both in sync whenever you rotate:
 
-| Secret | Where it lives | Rotate by |
-|--------|----------------|-----------|
-| `AZURE_AI_API_KEY` | `.env` — Azure AI Foundry | Regenerate in the Foundry project / key vault |
-| `XAI_API_KEY` | `.env` — xAI / Grok | Regenerate at https://console.x.ai |
-| `MICROSOFT_CLIENT_SECRET` | `.env` — Entra ID SSO | Azure → App registrations → **Certificates & secrets** → new secret |
-| `AZURE_CLIENT_SECRET` / `AZURE_CLIENT_ID` | `.env` — Caddy DNS-01 ACME | `az ad sp credential reset --id <SP-APP-ID>` — **not** the same as the SSO secret |
-| `LITELLM_MASTER_KEY` (== `OPENAI_API_KEYS` == `RAG_OPENAI_API_KEY`) | `.env` | Generate a new key; keep all three values identical |
-| Postgres password (`dbpassword9090`) | `.env` `DATABASE_URL` / `OPENWEBUI_DATABASE_URL` + `compose.yml` `POSTGRES_PASSWORD` | Set the same new value in all three, then wipe the data volume (`make clean`) — an existing `pgdata/` keeps the old password |
-| `SEARXNG_SECRET` | `.env` | `openssl rand -hex 32` |
-| `UI_USERNAME` / `UI_PASSWORD` | `.env` — LiteLLM admin UI | Choose a strong pair if you enable the admin panel |
-| `MOONSHOT_API_KEY` | `.env` | Remove the `sk-mock-*` placeholder if you don't use Moonshot |
+1. **`.env`** — compose runtime (gitignored). Takes effect after
+   `docker compose up -d <service>`.
+2. **`charts/mygpt/values.secrets.yaml`** — the Helm/k8s path, **SOPS-encrypted**
+   with Azure Key Vault and committed. Edit via `helm secrets decrypt` → change →
+   `helm secrets encrypt`, then commit (see [SOPS + Azure KMS](#sops--azure-kms)).
 
-Other production hygiene:
+**Cadence:** rotate cloud keys that touch the public surface **quarterly**;
+immediately on personnel change, suspected leak, or whenever a value appears in
+a committed file or log (the gitleaks hook blocks *new* leaks but never scrubs
+history).
+
+| Credential | Lives in | Rotate by | Blast radius |
+|-----------|----------|-----------|--------------|
+| `AZURE_AI_API_KEY` (Foundry) | `.env` + SOPS | Regenerate in the Foundry project / key vault | LLM + embeddings |
+| `XAI_API_KEY` (Grok) | `.env` + SOPS | Regenerate at https://console.x.ai | LLM calls |
+| `GEMINI_API_KEY` | `.env` + SOPS | Regenerate at https://aistudio.google.com | LLM calls |
+| `MICROSOFT_CLIENT_SECRET` (SSO) | `.env` + SOPS | Azure → App registrations → **Certificates & secrets** → new secret | Sign-in |
+| `AZURE_CLIENT_SECRET` (SPN `mygpt-caddy`, DNS-01) | `.env` + SOPS | `az ad sp credential reset --id 19c2b995-6762-4fbd-9b1f-01a006a295f6` | TLS issue/renew |
+| SOPS key `mygpt-sops/sops` (Azure KV) | Azure (URL in `.sops.yaml`) | New KV key version → update `.sops.yaml` → re-encrypt | All encrypted secrets |
+| `LITELLM_MASTER_KEY` (== `OPENAI_API_KEYS` == `RAG_OPENAI_API_KEY`) | `.env` + SOPS | Generate a new key; **keep all three values identical** | All LLM traffic |
+| Postgres password (`dbpassword9090`) | `.env` + SOPS + `compose.yml` | Same value in all three; on compose wipe `pgdata/` (`make clean`) or the old password persists | All data |
+| `SEARXNG_SECRET` | `.env` + SOPS | `openssl rand -hex 32` | Web search |
+| `KW_SECRET_API_KEY` (Kokoro TTS) | `.env` + SOPS | `openssl rand -hex 24` | TTS |
+| `UI_USERNAME` / `UI_PASSWORD` (LiteLLM admin) | `.env` + SOPS | Choose a strong pair | Proxy admin |
+| `WEBUI_ADMIN_PASSWORD` | env at first boot | Change after first login in the UI | UI admin |
+| `MOONSHOT_API_KEY` | `.env` + SOPS | Remove the `sk-mock-*` placeholder if unused | LLM calls |
+
+Notes:
 
 * The **gitleaks pre-commit hook** (`git config core.hooksPath .githooks`) blocks
-  *new* staged secrets, but it does **not** scrub history — rotate anything that
-  ever touched a committed file.
-* If you set `WEBUI_ADMIN_EMAIL` / `WEBUI_ADMIN_PASSWORD` to pre-create an admin,
-  use a strong password and change it after first login.
-* The SSO app secret and the Caddy service-principal secret are independent —
-  keep them separate, set expiry dates, and rotate on a schedule.
+  *new* staged secrets but does **not** scrub history — rotate anything that ever
+  touched a committed file.
+* The SSO app secret and the Caddy/DNS SPN secret are **independent** — rotate
+  separately, and give SPN secrets expiry dates.
+* After any rotation, restart the affected service(s): `docker compose up -d
+  <svc>` (compose) or `helm secrets upgrade mygpt …` (k8s).
 
 ### `litellm_config.yaml`
 

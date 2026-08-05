@@ -1,6 +1,9 @@
 # Helm Migration Plan: compose → k3s
 
-Status: **plan** (not started). Cluster is live and verified; this document is the agreed approach for replacing the `docker compose` deployment with a Helm chart on the host k3s cluster.
+Status: **in progress**. Compose still serves. k3s cluster live, `charts/mygpt`
+skeleton scaffolded + validated, secrets SOPS-encrypted with Azure KV. Remaining:
+Phase 0 (cert-manager + ingress-nginx) → data migration → cutover → decommission.
+See also the [secret rotation strategy](../README.md#secret-rotation-strategy).
 
 ## Current state
 
