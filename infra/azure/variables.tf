@@ -88,5 +88,13 @@ variable "model_deployments" {
       sku           = "Standard"
       capacity      = 1
     }
+    # Higher-quality TTS (used by the app as model "tts-hd").
+    "tts-hd" = {
+      format        = "OpenAI"
+      model_name    = "tts-hd"
+      model_version = "001"
+      sku           = "Standard"
+      capacity      = 1
+    }
   }
 }

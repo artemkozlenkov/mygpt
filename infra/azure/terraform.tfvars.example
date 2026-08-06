@@ -27,4 +27,11 @@
 #     sku           = "Standard"
 #     capacity      = 1
 #   }
+#   "tts-hd" = {
+#     format        = "OpenAI"
+#     model_name    = "tts-hd"
+#     model_version = "001"
+#     sku           = "Standard"
+#     capacity      = 1
+#   }
 # }
