@@ -83,7 +83,8 @@ secrets:
     DEFAULT_MODELS: "gpt-5.6-luna"
     ENABLE_OLLAMA_API: "False"
     ENABLE_EVALUATION_ARENA_MODELS: "False"
-    DEFAULT_MODEL_METADATA: '{"defaultFeatureIds":["web_search"],"capabilities":{"web_search":true}}'
+    # Web search is available (ENABLE_WEB_SEARCH) but NOT default-on per chat.
+    DEFAULT_MODEL_METADATA: '{}'
     # Web search (searxng)
     ENABLE_WEB_SEARCH: "True"
     ENABLE_SEARCH_QUERY_GENERATION: "True"
