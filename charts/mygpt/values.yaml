@@ -132,10 +132,11 @@ storage:
   openwebui: 8Gi
   # kokoro cache is emptyDir (rebuildable); not listed here.
 
-# Ingress — replaces Caddy. Enable only during cutover (Phase 5) after Caddy
-# has released host 80/443. Requires ingress-nginx + cert-manager (Phase 0).
+# Ingress — replaces Caddy; this is the live path (cutover complete).
+# Requires ingress-nginx + cert-manager (Phase 0). Default ON so a plain
+# `helm secrets upgrade` never drops the Ingress (that caused an outage).
 ingress:
-  enabled: false
+  enabled: true
   className: nginx
   host: chat.softawebit.com
   certIssuer: letsencrypt-azure-dns01

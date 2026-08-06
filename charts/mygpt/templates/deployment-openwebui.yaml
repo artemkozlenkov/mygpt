@@ -30,7 +30,9 @@ spec:
                 secretKeyRef:
                   name: {{ include "mygpt.secretName" . }}
                   key: OPENWEBUI_DATABASE_URL
-            # TTS API key for the Kokoro Web sidecar (must match KW_SECRET_API_KEY)
+            # TTS API key — tied to the local Kokoro sidecar (must match
+            # KW_SECRET_API_KEY). Rolled back from Azure OpenAI TTS after it
+            # caused a startup hang (see git history / docs).
             - name: AUDIO_TTS_OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
