@@ -30,17 +30,21 @@ spec:
                 secretKeyRef:
                   name: {{ include "mygpt.secretName" . }}
                   key: OPENWEBUI_DATABASE_URL
-            # TTS API key — tied to the local Kokoro sidecar (must match
-            # KW_SECRET_API_KEY). Rolled back from Azure OpenAI TTS after it
-            # caused a startup hang (see git history / docs).
-            - name: AUDIO_TTS_OPENAI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mygpt.secretName" . }}
-                  key: KW_SECRET_API_KEY
+            # AUDIO_TTS_OPENAI_API_KEY comes from the shared secret (envFrom)
+            # and holds the Azure OpenAI key for TTS.
           volumeMounts:
             - name: openwebui-data
               mountPath: /app/backend/data
+          # Slow startup (Whisper STT model loads on boot) — only route traffic
+          # to this pod once /health actually responds.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.resources.openwebui | nindent 12 }}
       volumes:
