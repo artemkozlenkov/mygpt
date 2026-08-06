@@ -42,3 +42,12 @@ pgdata/
 /searxng/
 # values.secrets.yaml is SOPS-encrypted with Azure Key Vault (.sops.yaml) — COMMITTED.
 
+# Terraform (infra/azure)
+infra/azure/.terraform/
+infra/azure/*.tfstate
+infra/azure/*.tfstate.*
+infra/azure/crash.log
+infra/azure/*.tfvars
+!infra/azure/terraform.tfvars.example
+infra/azure/tfplan
+

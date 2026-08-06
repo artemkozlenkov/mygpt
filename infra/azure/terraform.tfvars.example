@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars and override only what you need.
+# All values default to the names in variables.tf — nothing is required.
+
+# location             = "swedencentral"
+# resource_group_name  = "rg-mygpt-ai"
+# openai_account_name  = "mygpt-openai"
+
+# model_deployments = {
+#   "gpt-5.6-luna" = {
+#     format        = "OpenAI"
+#     model_name    = "gpt-5.6-luna"
+#     model_version = "2026-07-09"   # `az cognitiveservices account list-models` to confirm
+#     sku           = "GlobalStandard"
+#     capacity      = 3
+#   }
+#   "text-embedding-3-large" = {
+#     format        = "OpenAI"
+#     model_name    = "text-embedding-3-large"
+#     model_version = "1"
+#     sku           = "Standard"
+#     capacity      = 3
+#   }
+#   "tts-1" = {
+#     format        = "OpenAI"
+#     model_name    = "tts"
+#     model_version = "001"
+#     sku           = "Standard"
+#     capacity      = 1
+#   }
+# }
