@@ -246,8 +246,8 @@ done
 kubectl -n mygpt exec deploy/mygpt-litellm -- sh -c 'grep -A6 router_settings /app/config.yaml | head'
 ```
 
-**Pass:** `gpt-5.6-luna` capacity ≥ 10 and `text-embedding-3-large` capacity ≥ 25
-(≈25 RPM / 25k TPM, sized for RAG ingestion bursts), and `router_settings` with
+**Pass:** `gpt-5.6-luna` capacity ≥ 10 and `text-embedding-3-large` capacity ≥ 50
+(≈50 RPM / 50k TPM, sized for concurrent RAG ingestion bursts), and `router_settings` with
 `RateLimitErrorRetries` present. If 429s still appear, raise capacity in
 `infra/azure/variables.tf` (`model_deployments.<name>.capacity`) and
 `terraform apply`, then repeat F1/F2.
