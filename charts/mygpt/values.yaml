@@ -13,6 +13,7 @@ images:
   db: pgvector/pgvector:pg18
   redis: redis:8.8.1
   searxng: docker.io/searxng/searxng:2026.7.28-c01178d03
+  docling: quay.io/docling-project/docling-serve-cpu:latest
 
 # Resources per service — mirrors the compose.yml deploy.resources caps.
 resources:
@@ -34,6 +35,9 @@ resources:
   searxng:
     limits: { cpu: "1", memory: 1Gi }
     requests: { cpu: 100m, memory: 128Mi }
+  docling:
+    limits: { cpu: "2", memory: 2Gi }
+    requests: { cpu: 500m, memory: 512Mi }
 
 secrets:
   # If set, use this pre-created Secret instead of rendering one from data.
@@ -100,6 +104,10 @@ secrets:
     PDF_EXTRACT_IMAGES: "True"
     RAG_OPENAI_API_BASE_URL: "http://litellm:4000/v1"
     RAG_OPENAI_API_KEY: ""
+    # Document parsing sidecar (Docling) — deployment-docling.yaml; the DB
+    # config rag.content_extraction_engine drives this at runtime.
+    CONTENT_EXTRACTION_ENGINE: "docling"
+    DOCLING_SERVER_URL: "http://docling:5001"
     # Speech (Whisper STT + Kokoro TTS)
     WHISPER_MODEL: "small"
     WHISPER_MULTILINGUAL: "True"
@@ -127,6 +135,7 @@ services:
   - { name: db, port: 5432 }
   - { name: redis, port: 6379 }
   - { name: searxng, port: 8080 }
+  - { name: docling, port: 5001 }
 
 storage:
   db: 8Gi

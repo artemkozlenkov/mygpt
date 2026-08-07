@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mygpt.fullname" . }}-docling
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: docling
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "docling") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mygpt.selectorLabels" (dict "root" . "component" "docling") | nindent 8 }}
+    spec:
+      containers:
+        - name: docling
+          # Self-hosted Docling API server — OpenWebUI's RAG document parser
+          # (rag.content_extraction_engine=docling). CPU variant (no GPU on host).
+          image: {{ .Values.images.docling }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5001
+              name: http
+          # /docs (Swagger) is served once FastAPI is up; model files download
+          # on first conversion, so the pod may be Ready before first-use.
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources.docling | nindent 12 }}
