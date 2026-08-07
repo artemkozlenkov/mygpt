@@ -36,8 +36,9 @@ resources:
     limits: { cpu: "1", memory: 1Gi }
     requests: { cpu: 100m, memory: 128Mi }
   docling:
-    limits: { cpu: "2", memory: 2Gi }
-    requests: { cpu: 500m, memory: 512Mi }
+    # Docling ML models exceed 2Gi (was OOM-killed); 4Gi gives headroom.
+    limits: { cpu: "2", memory: 4Gi }
+    requests: { cpu: 500m, memory: 1Gi }
 
 secrets:
   # If set, use this pre-created Secret instead of rendering one from data.
