@@ -104,6 +104,18 @@ so encryption must run on a file at that path — never redirect `sops --encrypt
 /tmp/… > charts/…` (it errors "no matching creation rules" and truncates the
 target). The `cp` + `--in-place` pair above is the verified flow.
 
+> **Removing a key entirely?** helm `upgrade` (and `kubectl apply`) will **not**
+> delete a Secret key you removed from `values.secrets.yaml` — apply merges and
+> preserves keys it doesn't know about (observed: dormant-key removal left
+> `GEMINI_API_KEY`/`MOONSHOT_API_KEY` and a stale `DOCLING_SERVER_URL` in the
+> live Secret). After the upgrade, drop them and restart the consumers:
+>
+> ```bash
+> kubectl -n mygpt patch secret mygpt-secrets --type=json \
+>   -p='[{"op":"remove","path":"/data/<KEY>"}]'
+> kubectl -n mygpt rollout restart deploy/mygpt-openwebui deploy/mygpt-litellm deploy/mygpt-searxng
+> ```
+
 ---
 
 ## A. Azure OpenAI key — `AZURE_AI_API_KEY` + `AUDIO_TTS_OPENAI_API_KEY`
