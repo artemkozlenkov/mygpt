@@ -34,10 +34,13 @@ sops --decrypt charts/mygpt/values.secrets.yaml > /tmp/secrets.plain.bak
 Check decrypt works at all (if this fails, stop — fix access before anything):
 
 ```bash
-helm secrets decrypt charts/mygpt/values.secrets.yaml && echo DECRYPT-OK
-helm secrets encrypt charts/mygpt/values.secrets.yaml          # restore ciphertext
-git diff --stat charts/mygpt/values.secrets.yaml               # expect no diff
+sops --decrypt charts/mygpt/values.secrets.yaml > /dev/null && echo DECRYPT-OK
 ```
+
+> ⚠ **Do not run `helm secrets decrypt` and expect it to edit the file.** On the
+> current tooling (helm-secrets 4.7.7) it prints the plaintext to stdout and
+> leaves the file untouched. The only flow that is known-good here is explicit
+> `sops` input/output files, as shown below.
 
 ## 1. ⚠ Repair known drift FIRST (document parsing is currently broken)
 
@@ -82,10 +85,12 @@ secrets:
 Every rotation below is this loop with different inputs:
 
 ```bash
-helm secrets decrypt charts/mygpt/values.secrets.yaml    # file becomes plaintext in place
-# … edit the values …
-helm secrets encrypt charts/mygpt/values.secrets.yaml    # back to ciphertext
-git diff --stat charts/mygpt/values.secrets.yaml         # ciphertext should change
+sops --decrypt charts/mygpt/values.secrets.yaml > /tmp/secrets.plain.yaml   # plaintext to a scratch file
+# … edit /tmp/secrets.plain.yaml (e.g. the KEY you are rotating) …
+cp /tmp/secrets.plain.yaml charts/mygpt/values.secrets.yaml                 # stage plaintext at the repo path
+sops --encrypt --in-place charts/mygpt/values.secrets.yaml                  # encrypt back to ciphertext
+sops --decrypt charts/mygpt/values.secrets.yaml > /dev/null                 # round-trip check
+git diff --stat charts/mygpt/values.secrets.yaml                            # ciphertext should change
 git add charts/mygpt/values.secrets.yaml && git commit -m "chore(secrets): rotate <what>"
 helm secrets upgrade mygpt charts/mygpt \
   -f charts/mygpt/values.secrets.yaml --namespace mygpt
@@ -93,7 +98,11 @@ kubectl -n mygpt rollout status deploy/mygpt-openwebui   # slow start is normal 
 kubectl -n mygpt get secret mygpt-secrets -o jsonpath='{.data.<KEY>}' | base64 -d | wc -c   # sanity
 ```
 
-Only the encrypted file is committed — never a plaintext value.
+Only the encrypted file is committed — never a plaintext value. The `sops`
+creation rule in `.sops.yaml` matches the *repo path* (`charts/mygpt/values.secrets.yaml`),
+so encryption must run on a file at that path — never redirect `sops --encrypt
+/tmp/… > charts/…` (it errors "no matching creation rules" and truncates the
+target). The `cp` + `--in-place` pair above is the verified flow.
 
 ---
 
@@ -283,8 +292,9 @@ sops --decrypt charts/mygpt/values.secrets.yaml > /tmp/secrets.plain.yaml
 
 # 3. edit .sops.yaml → point azure_keyvault at $NEWKID
 
-# 4. re-encrypt with the new key
-sops --encrypt /tmp/secrets.plain.yaml > charts/mygpt/values.secrets.yaml
+# 4. re-encrypt with the new key (must run on the repo path — see §2)
+cp /tmp/secrets.plain.yaml charts/mygpt/values.secrets.yaml
+sops --encrypt --in-place charts/mygpt/values.secrets.yaml
 
 # 5. verify the new ciphertext decrypts
 sops --decrypt charts/mygpt/values.secrets.yaml > /dev/null && echo RE-ENCRYPT-OK

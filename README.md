@@ -38,11 +38,17 @@ holding **Key Vault Crypto Officer** on `mygpt-sops`).
 key `mygpt-sops/sops` (see `.sops.yaml`) and committed. Edit → encrypt → commit:
 
 ```bash
-helm secrets decrypt charts/mygpt/values.secrets.yaml   # plaintext for editing
-# ...edit...
-helm secrets encrypt charts/mygpt/values.secrets.yaml   # back to ciphertext
-git add charts/mygpt/values.secrets.yaml && git commit  # commit encrypted only
+sops --decrypt charts/mygpt/values.secrets.yaml > /tmp/secrets.plain.yaml   # plaintext for editing
+# ...edit /tmp/secrets.plain.yaml...
+cp /tmp/secrets.plain.yaml charts/mygpt/values.secrets.yaml                 # stage at repo path
+sops --encrypt --in-place charts/mygpt/values.secrets.yaml                  # back to ciphertext
+git add charts/mygpt/values.secrets.yaml && git commit                      # commit encrypted only
 ```
+
+> Note: `helm secrets decrypt` on this setup prints to stdout and does **not**
+> edit the file in place — use the explicit `sops` flow above. Encryption must
+> run on the repo path (the `.sops.yaml` creation rule matches it), so never
+> `sops --encrypt /tmp/… > charts/…` (it errors and truncates the target).
 
 Deploy / upgrade (decrypts on the fly):
 
@@ -171,8 +177,9 @@ env in `values.secrets.yaml`, then `helm secrets upgrade mygpt …`.
 ## Secret rotation strategy
 
 Secrets live in **one store** now: `charts/mygpt/values.secrets.yaml`
-(SOPS-encrypted, committed). Rotate → `helm secrets decrypt` → change →
-`helm secrets encrypt` → commit → `helm secrets upgrade mygpt …`.
+(SOPS-encrypted, committed). Rotate → `sops --decrypt` to a scratch file →
+change → `cp` to the repo path + `sops --encrypt --in-place` → commit →
+`helm secrets upgrade mygpt …`.
 
 **Step-by-step runbook with exact commands for every credential**
 (DNS SPN, SOPS KV key, Azure keys, Postgres, SSO, …):
