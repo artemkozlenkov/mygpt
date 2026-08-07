@@ -71,12 +71,15 @@ variable "model_deployments" {
     capacity      = number
   }))
   default = {
+    # capacity = rate limit. GlobalStandard maps 1 capacity → 1 RPM / 1k TPM.
+    # 3 (default) caused 429 RateLimitError under normal chat+search use;
+    # 10 gives ~10 RPM / 10k TPM headroom.
     "gpt-5.6-luna" = {
       format        = "OpenAI"
       model_name    = "gpt-5.6-luna"
       model_version = "2026-07-09"
       sku           = "GlobalStandard"
-      capacity      = 3
+      capacity      = 10
     }
     "text-embedding-3-large" = {
       format        = "OpenAI"

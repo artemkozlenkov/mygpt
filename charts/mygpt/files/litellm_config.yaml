@@ -1,5 +1,13 @@
 litellm_settings:
     drop_params: true
+    # Resilience for Azure rate limits / transient failures. With a single
+    # deployment there is no fallback group, so retry with backoff instead.
+    router_settings:
+        num_retries: 3
+        retry_policy:
+            RateLimitErrorRetries: 3      # retry 429s up to 3x with backoff
+        allowed_fails: 3
+        cooldown_time: 30                 # seconds before a marked-down deployment is retried
 
 model_list:
   # Azure AI Foundry chat deployment "gpt-5.6-luna"
