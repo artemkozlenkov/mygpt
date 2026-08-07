@@ -150,3 +150,4 @@ ingress:
   className: nginx
   host: chat.softawebit.com
   certIssuer: letsencrypt-azure-dns01
+  proxyBodySize: "50m"   # max upload size (PDFs/docs for RAG); nginx default is 1m

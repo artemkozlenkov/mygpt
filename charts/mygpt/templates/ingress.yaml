@@ -10,6 +10,9 @@ metadata:
   labels: {{- include "mygpt.labels" . | nindent 4 }}
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.ingress.certIssuer | quote }}
+    # nginx default is 1m — too small for RAG documents/PDFs. Raise the upload
+    # body limit (OpenWebUI itself has no file-size cap).
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.proxyBodySize | default "50m" | quote }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   tls:
