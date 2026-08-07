@@ -108,6 +108,9 @@ secrets:
     # All verified users can see/use the available models (no per-model access
     # grants exist, so the user role would otherwise see an empty list).
     BYPASS_MODEL_ACCESS_CONTROL: "True"
+    # Personalization: default UI language + branded favicon (logo.svg).
+    DEFAULT_LOCALE: "en"
+    WEBUI_FAVICON_URL: "https://chat.softawebit.com/static/logo.svg"
     # Speech (Whisper STT + Kokoro TTS)
     WHISPER_MODEL: "small"
     WHISPER_MULTILINGUAL: "True"

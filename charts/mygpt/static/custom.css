@@ -1,0 +1,32 @@
+/* myGPT custom theme — served at /static/custom.css.
+   Override OpenWebUI CSS variables + a few safe component rules.
+   Tune accent color / font here. */
+
+:root {
+  --default-font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --border-radius: 0.625rem;
+
+  /* Accent (indigo) — used where OpenWebUI reads --primary; some builds
+     expose theme colors under different names, so we also set a few surface
+     vars and rely on the component rules below. */
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --background-pattern-color-default: rgba(99, 102, 241, 0.07);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.45); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.7); }
+
+/* Primary buttons get the accent */
+button.primary, .bg-blue-600, [class*="bg-emerald"] {
+  border-radius: var(--border-radius);
+}
+
+/* Subtle rounded corners on cards / dropdowns */
+.rounded-xl, .rounded-lg, [class*="rounded-"] { border-radius: var(--border-radius) !important; }
+
+/* Sidebar accent bar */
+.sidebar .px-4, aside .px-4 { border-left: 2px solid rgba(99, 102, 241, 0.35); }

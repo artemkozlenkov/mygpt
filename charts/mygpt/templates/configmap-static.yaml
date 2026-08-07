@@ -1,0 +1,15 @@
+# Custom frontend assets: theme (custom.css) + logo (logo.svg), served from
+# OpenWebUI's static dir. Mounted into the openwebui pod via subPath so the
+# rest of the static dir (favicon.png etc.) is preserved.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mygpt.fullname" . }}-static
+  namespace: {{ .Values.namespace }}
+  labels: {{- include "mygpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: openwebui
+data:
+  custom.css: |
+    {{- .Files.Get "static/custom.css" | nindent 4 }}
+  logo.svg: |
+    {{- .Files.Get "static/logo.svg" | nindent 4 }}

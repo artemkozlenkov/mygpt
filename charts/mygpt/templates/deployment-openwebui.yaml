@@ -35,6 +35,14 @@ spec:
           volumeMounts:
             - name: openwebui-data
               mountPath: /app/backend/data
+            # Custom theme + logo (configmap-static.yaml); subPath keeps the
+            # rest of the static dir intact.
+            - name: mygpt-static
+              mountPath: /app/backend/open_webui/static/custom.css
+              subPath: custom.css
+            - name: mygpt-static
+              mountPath: /app/backend/open_webui/static/logo.svg
+              subPath: logo.svg
           # Slow startup (Whisper STT model loads on boot) — only route traffic
           # to this pod once /health actually responds.
           readinessProbe:
@@ -51,3 +59,6 @@ spec:
         - name: openwebui-data
           persistentVolumeClaim:
             claimName: {{ include "mygpt.fullname" . }}-openwebui
+        - name: mygpt-static
+          configMap:
+            name: {{ include "mygpt.fullname" . }}-static
