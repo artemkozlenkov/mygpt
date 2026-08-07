@@ -255,18 +255,24 @@ kubectl -n mygpt exec deploy/mygpt-litellm -- sh -c 'grep -A6 router_settings /a
 
 | Feature | Pass (✓/✗) | Verified by | Date |
 |---------|-----------|-------------|------|
-| F1 Chat | | | |
-| F2 RAG embeddings | | | |
-| F3 Web search | | | |
-| F4 TTS | | | |
+| F1 Chat | ✓ | Claude (CLI, via litellm) | 2026-08-07 |
+| F2 RAG embeddings | ✓ | Claude (CLI, via litellm) | 2026-08-07 |
+| F3 Web search | ✓ | Claude (CLI, SearXNG) | 2026-08-07 |
+| F4 TTS | ✓ | Claude (CLI, Azure speech) | 2026-08-07 |
 | F5 Document parsing | | | |
 | F6 SSO | | | |
 | F7 Postgres persistence | | | |
-| F8 Redis | | | |
-| F9 TLS + ingress | | | |
+| F8 Redis | ✓ | Claude (CLI) | 2026-08-07 |
+| F9 TLS + ingress | ✓ | Claude (CLI) | 2026-08-07 |
 | F10 LiteLLM admin | | | |
-| F11 Model visibility | | | |
-| F12 Branding / locale | | | |
-| F13 Rate-limit resilience | | | |
+| F11 Model visibility | ✓ | Claude (CLI, env) | 2026-08-07 |
+| F12 Branding / locale | ✓ | Claude (CLI, env) | 2026-08-07 |
+| F13 Rate-limit resilience | ✓ | Claude (CLI, capacity + retry) | 2026-08-07 |
+
+Rows marked **✓** were verified via CLI by Claude on **2026-08-07**. Still
+pending **manual/browser signoff**: F5 (upload a real PDF and query it), F6
+(full SSO login), F7 (chat history survives a pod restart), F10 (log in to the
+LiteLLM admin panel with the credentials — see the runbook). F11/F12 env checks
+passed; confirm the model list and branding visually in the UI.
 
 All rows pass → the deployment is signed off for release to users.
