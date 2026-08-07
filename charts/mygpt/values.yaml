@@ -54,8 +54,6 @@ secrets:
     AZURE_API_VERSION: "2024-05-01-preview"
     GEMINI_API_KEY: ""
     MOONSHOT_API_KEY: ""
-    XAI_API_BASE: "https://api.x.ai/v1"
-    XAI_API_KEY: ""
     # LiteLLM admin panel
     UI_USERNAME: ""
     UI_PASSWORD: ""
