@@ -81,12 +81,14 @@ variable "model_deployments" {
       sku           = "GlobalStandard"
       capacity      = 10
     }
+    # RAG embeddings were rate-limited at capacity 3 (3 RPM / 3k TPM) — the
+    # RAG pipeline fires many embedding calls during ingestion. 10 = 10 RPM / 10k TPM.
     "text-embedding-3-large" = {
       format        = "OpenAI"
       model_name    = "text-embedding-3-large"
       model_version = "1"
       sku           = "Standard"
-      capacity      = 3
+      capacity      = 10
     }
     # Azure exposes the OpenAI TTS model as name "tts" (version 001);
     # the deployment is named "tts-1" so the app can call it as tts-1.
@@ -95,7 +97,7 @@ variable "model_deployments" {
       model_name    = "tts"
       model_version = "001"
       sku           = "Standard"
-      capacity      = 1
+      capacity      = 3
     }
     # Higher-quality TTS (used by the app as model "tts-hd").
     "tts-hd" = {
