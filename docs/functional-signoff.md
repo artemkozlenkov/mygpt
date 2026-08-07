@@ -238,16 +238,19 @@ tab shows the logo, theme and persona config apply.
 **Expected:** no Azure `RateLimitError` surfaces to the UI during normal use.
 
 ```bash
-az cognitiveservices account deployment show -n mygpt-openai -g rg-mygpt-ai \
-  --deployment-name gpt-5.6-luna --query "{capacity:sku.capacity, limits:properties.rateLimits}" -o json
+for dep in gpt-5.6-luna text-embedding-3-large; do
+  az cognitiveservices account deployment show -n mygpt-openai -g rg-mygpt-ai \
+    --deployment-name "$dep" --query "{dep:name, capacity:sku.capacity, limits:properties.rateLimits}" -o json
+done
 # retry config is live in litellm
 kubectl -n mygpt exec deploy/mygpt-litellm -- sh -c 'grep -A6 router_settings /app/config.yaml | head'
 ```
 
-**Pass:** capacity ≥ 10 (≈10 RPM / 10k TPM) and `router_settings` with
+**Pass:** `gpt-5.6-luna` capacity ≥ 10 and `text-embedding-3-large` capacity ≥ 25
+(≈25 RPM / 25k TPM, sized for RAG ingestion bursts), and `router_settings` with
 `RateLimitErrorRetries` present. If 429s still appear, raise capacity in
-`infra/azure/variables.tf` (`model_deployments.gpt-5.6-luna.capacity`) and
-`terraform apply`, then repeat F1.
+`infra/azure/variables.tf` (`model_deployments.<name>.capacity`) and
+`terraform apply`, then repeat F1/F2.
 
 ---
 
