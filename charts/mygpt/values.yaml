@@ -52,8 +52,6 @@ secrets:
     AZURE_AI_API_BASE: "https://mygpt-openai.openai.azure.com"
     AZURE_AI_API_KEY: ""
     AZURE_API_VERSION: "2024-05-01-preview"
-    GEMINI_API_KEY: ""
-    MOONSHOT_API_KEY: ""
     # LiteLLM admin panel
     UI_USERNAME: ""
     UI_PASSWORD: ""
