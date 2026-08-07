@@ -174,6 +174,10 @@ Secrets live in **one store** now: `charts/mygpt/values.secrets.yaml`
 (SOPS-encrypted, committed). Rotate → `helm secrets decrypt` → change →
 `helm secrets encrypt` → commit → `helm secrets upgrade mygpt …`.
 
+**Step-by-step runbook with exact commands for every credential**
+(DNS SPN, SOPS KV key, Azure keys, Postgres, SSO, …):
+[`docs/secret-rotation.md`](docs/secret-rotation.md).
+
 **Cadence:** rotate cloud keys quarterly; immediately on personnel change,
 suspected leak, or when a value appears in a committed file/log (the gitleaks
 hook blocks *new* leaks but never scrubs history).
@@ -183,7 +187,7 @@ hook blocks *new* leaks but never scrubs history).
 | `AZURE_AI_API_KEY` (mygpt-openai) | SOPS | Regenerate in the OpenAI account (`az cognitiveservices account keys regenerate`) | LLM + embeddings + TTS |
 | `GEMINI_API_KEY` | SOPS | Regenerate at https://aistudio.google.com | LLM calls |
 | `MICROSOFT_CLIENT_SECRET` (SSO) | SOPS | Azure → App registrations → **Certificates & secrets** → new secret | Sign-in |
-| `AZURE_CLIENT_SECRET` (SPN `mygpt-caddy`, DNS-01) | SOPS | `az ad sp credential reset --id 19c2b995-6762-4fbd-9b1f-01a006a295f6` | TLS issue/renew |
+| `AZURE_CLIENT_SECRET` (SPN `mygpt-caddy`, DNS-01) | k8s Secret `azuredns-config` (cert-manager ns) | `az ad sp credential reset --id 19c2b995-6762-4fbd-9b1f-01a006a295f6`, then update the k8s Secret | TLS issue/renew |
 | SOPS key `mygpt-sops/sops` (Azure KV) | Azure (URL in `.sops.yaml`) | New KV key version → update `.sops.yaml` → re-encrypt | All encrypted secrets |
 | `LITELLM_MASTER_KEY` (== `OPENAI_API_KEYS` == `RAG_OPENAI_API_KEY`) | SOPS | Generate a new key; **keep all three values identical** | All LLM traffic |
 | Postgres password | SOPS (`DATABASE_URL`, `POSTGRES_PASSWORD`) | Same value in both; recreate the DB PVC on change | All data |
@@ -195,6 +199,11 @@ hook blocks *new* leaks but never scrubs history).
 
 Notes:
 
+* **Known drift — fix before the next upgrade:** six keys in
+  `values.secrets.yaml` sit under `postgres:` instead of `secrets.data:`. The
+  chart renders only `secrets.data`, so `DOCUMENT_INTELLIGENCE_KEY` is **empty
+  in the live Secret today** (document parsing broken). Move the six keys under
+  `secrets.data:` — see `docs/secret-rotation.md` §1.
 * The **gitleaks pre-commit hook** (`git config core.hooksPath .githooks`) blocks
   *new* staged secrets but does **not** scrub history — rotate anything that ever
   touched a committed file.

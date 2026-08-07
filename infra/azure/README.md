@@ -31,6 +31,7 @@ chosen region; adjust in `terraform.tfvars` if a deployment fails.
 
 - Credentials are never stored here — the provider authenticates via
   `az login` (Azure CLI).
-- The stack deploys to this subscription; the running app still points at the
-  original `foundry-ai` resource until you re-point `values.secrets.yaml`
-  (`AZURE_AI_API_BASE`/`AZURE_AI_API_KEY`) at the new account and re-encrypt.
+- The stack deploys to this subscription. The running app points at this
+  account: `values.secrets.yaml` sets `AZURE_AI_API_BASE` /
+  `AZURE_AI_API_KEY` to `mygpt-openai` (and `AUDIO_TTS_*` for TTS, plus
+  `mygpt-docintel` for document parsing).
