@@ -105,6 +105,9 @@ secrets:
     CONTENT_EXTRACTION_ENGINE: "document_intelligence"
     DOCUMENT_INTELLIGENCE_ENDPOINT: "https://mygpt-docintel.cognitiveservices.azure.com/"
     DOCUMENT_INTELLIGENCE_KEY: ""
+    # All verified users can see/use the available models (no per-model access
+    # grants exist, so the user role would otherwise see an empty list).
+    BYPASS_MODEL_ACCESS_CONTROL: "True"
     # Speech (Whisper STT + Kokoro TTS)
     WHISPER_MODEL: "small"
     WHISPER_MULTILINGUAL: "True"
