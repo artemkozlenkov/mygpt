@@ -101,3 +101,15 @@ resource "azurerm_cognitive_deployment" "models" {
     capacity = each.value.capacity
   }
 }
+
+# ─── Azure AI Document Intelligence (RAG document parsing) ────────────────────
+# OpenWebUI's rag.content_extraction_engine = "document_intelligence".
+resource "azurerm_cognitive_account" "docintel" {
+  name                  = var.docintel_account_name
+  location              = azurerm_resource_group.main.location
+  resource_group_name   = azurerm_resource_group.main.name
+  kind                  = "FormRecognizer"
+  sku_name              = "S0"
+  custom_subdomain_name = var.docintel_account_name
+  tags                  = var.tags
+}

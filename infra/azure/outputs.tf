@@ -17,3 +17,7 @@ output "openai_endpoint" {
 output "model_deployments" {
   value = keys(azurerm_cognitive_deployment.models)
 }
+
+output "document_intelligence_endpoint" {
+  value = azurerm_cognitive_account.docintel.endpoint
+}

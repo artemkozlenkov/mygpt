@@ -45,6 +45,12 @@ variable "openai_account_name" {
   default     = "mygpt-openai"
 }
 
+variable "docintel_account_name" {
+  description = "Azure AI Document Intelligence account name (becomes <name>.cognitiveservices.azure.com)."
+  type        = string
+  default     = "mygpt-docintel"
+}
+
 variable "tags" {
   type    = map(string)
   default = { "managed-by" = "terraform" }
