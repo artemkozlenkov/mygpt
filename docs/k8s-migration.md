@@ -1,33 +1,20 @@
 # Helm Migration Plan: compose → k3s
 
-Status: **CUTOVER COMPLETE (2026-08-05)**. `https://chat.softawebit.com` now
-serves OpenWebUI from k3s via ingress-nginx (valid Let's Encrypt cert, DNS-01,
-routed over the tailnet). Health `{"status":true}`; compose Caddy stopped.
-Remaining (optional): decommission compose — `docker compose down`, retire
-`./caddy` + `Caddyfile`. See also the [secret rotation
+Status: **COMPLETE**. `https://chat.softawebit.com` serves "MyGPT" (OpenWebUI)
+from k3s via ingress-nginx (valid Let's Encrypt cert, DNS-01, tailnet-only).
+Compose fully decommissioned; all Azure resources Terraform-managed in
+`infra/azure/` (`mygpt-openai` for chat/embeddings/TTS, `mygpt-docintel` for
+document parsing). See also the [secret rotation
 strategy](../README.md#secret-rotation-strategy).
 
 ## Current state
 
-**Target cluster** (verified 2026-08-04):
-- k3s `v1.36.2+k3s1`, single node `art` (`control-plane`, Ready)
-- Traefik disabled (`--disable traefik` — host 80/443 kept free for Caddy during cutover)
-- local-path storage (default), metrics-server + coredns running
-- Helm `v4.2.3` at `~/.local/bin/helm`; `kubectl`/`helm` work as `art` via `KUBECONFIG=/etc/rancher/k3s/k3s.yaml`
-
-**Stack to replace** (7 services on the `my_network` bridge):
-
-| Service | Image | Notes |
-|---|---|---|
-| `caddy` | built `./caddy` (xcaddy + caddy-dns/azure) | deploy-profile; owns host 80/443; Azure DNS-01 TLS for `chat.softawebit.com` |
-| `litellm` | `ghcr.io/berriai/litellm:v1.94.0` | LLM gateway; `litellm_config.yaml` + `.env` |
-| `openwebui` | `ghcr.io/open-webui/open-webui:0.11.0` | UI; `DATABASE_URL` overridden to `openwebui` DB |
-| `kokoro-web` | `ghcr.io/eduardolat/kokoro-web:0.1.3` | TTS sidecar; internal-only (host 3000 taken by reactive_resume) |
-| `db` | `pgvector/pgvector:pg18` | Postgres 18 + pgvector; `./pgdata` bind mount; `initdb.d/initdb.sql` |
-| `redis` | `redis:8.8.1` | cache |
-| `searxng` | `docker.io/searxng/searxng:2026.7.28-c01178d03` | web search; `searxng/*` config |
-
-Shared single `.env` (gitignored) consumed by all services. Resource caps just added in `compose.yml`: webui/db 2 CPU·2G, litellm 1 CPU·2G, kokoro-web/searxng 1 CPU·1G, caddy 0.5 CPU·256M, redis 0.5 CPU·256M.
+**Live deployment** (final, all on k3s via `charts/mygpt`):
+- k3s `v1.36.2+k3s1`, single node `art`; Helm `v4.2.3`; `kubectl`/`helm`/`k9s` as `art` via `~/.kube/config`.
+- Namespace `mygpt`: `openwebui` (MyGPT UI), `litellm`, `db` (pgvector), `redis`, `searxng`, `kokoro-web` (unused), behind ingress-nginx + cert-manager.
+- **Models:** `gpt-5.6-luna` (chat) + `text-embedding-3-large` (RAG) via **`mygpt-openai`** (Terraform `infra/azure/`); TTS `tts-1`; **document parsing via `mygpt-docintel`** (Azure AI Document Intelligence). No more xAI/Grok or the self-hosted Docling sidecar.
+- **Secrets:** SOPS-encrypted with Azure KV; deploy/upgrade via `helm secrets upgrade mygpt charts/mygpt -f charts/mygpt/values.secrets.yaml --namespace mygpt`.
+- The compose stack was fully decommissioned (2026-08-05); all Azure resources are Terraform-managed in `infra/azure/`.
 
 ## Strategy: one umbrella chart
 

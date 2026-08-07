@@ -1,10 +1,12 @@
 # myGPT — Hybrid AI Chat Application
 
 Personal hybrid AI chat app: **OpenWebUI** frontend, **LiteLLM** proxy over
-Azure AI Foundry & xAI, with **pgvector Postgres**, **Redis**, **SearxNG**
-search, and local **Kokoro TTS**. Runs on a single-node **k3s** cluster via the
-`charts/mygpt` Helm chart, served at **https://chat.softawebit.com**
-(tailnet-only).
+**Azure OpenAI** (`gpt-5.6-luna` chat, `text-embedding-3-large` RAG), with
+**Azure TTS**, **Azure AI Document Intelligence** for document parsing,
+**pgvector Postgres**, **Redis**, and **SearxNG** search. Runs on a single-node
+**k3s** cluster via the `charts/mygpt` Helm chart, served at
+**https://chat.softawebit.com** (tailnet-only). All Azure resources are
+provisioned by Terraform in `infra/azure/`.
 
 ## Architecture
 
@@ -12,12 +14,12 @@ search, and local **Kokoro TTS**. Runs on a single-node **k3s** cluster via the
 tailnet device ──> https://chat.softawebit.com
                     ├── ingress-nginx (host 80/443, LoadBalancer)
                     ├── cert-manager (Let's Encrypt, Azure DNS-01 challenge)
-                    └── openwebui (chat UI)
-                         ├── litellm ──> Azure AI Foundry (gpt-5.6-luna) / xAI (grok-4.5)
+                    └── openwebui ("MyGPT" chat UI)
+                         ├── litellm ──> Azure OpenAI mygpt-openai (gpt-5.6-luna, embeddings)
+                         ├── Azure AI Document Intelligence mygpt-docintel (document parsing)
                          ├── db (pgvector Postgres 18)  — chat history, config, RAG embeddings
                          ├── redis (cache)
-                         ├── searxng (web search / RAG)
-                         └── kokoro-web (local TTS)
+                         └── searxng (web search / RAG)
 ```
 
 The host is behind **CGNAT**, so TLS uses the **DNS-01** challenge:
@@ -70,9 +72,13 @@ k9s                                                      # terminal UI (pods, lo
 | What | Where |
 |---|---|
 | App env / secrets | `charts/mygpt/values.secrets.yaml` (SOPS) + `values.yaml` defaults |
-| Models (LiteLLM) | `charts/mygpt/files/litellm_config.yaml` |
+| Models (LiteLLM) | `charts/mygpt/files/litellm_config.yaml` — only `gpt-5.6-luna` (chat) + `text-embedding-3-large` (RAG) |
+| Azure model endpoints | `mygpt-openai` (Terraform `infra/azure/`) via `AZURE_AI_API_BASE` / TTS / embeddings |
+| Document parsing | Azure AI Document Intelligence `mygpt-docintel` (`rag.content_extraction_engine`) |
 | Postgres init | `charts/mygpt/files/initdb.sql` |
 | SearXNG | `charts/mygpt/files/searxng/` |
+| Theme / logo | `charts/mygpt/static/custom.css` + `logo.svg` |
+| Model personas | OpenWebUI `model` table — base-model overrides with `params.system` |
 | Ingress / TLS | `charts/mygpt/templates/ingress.yaml` + ClusterIssuer `letsencrypt-azure-dns01` |
 
 ## Adding a new service with its own domain
@@ -174,8 +180,7 @@ hook blocks *new* leaks but never scrubs history).
 
 | Credential | Lives in | Rotate by | Blast radius |
 |-----------|----------|-----------|--------------|
-| `AZURE_AI_API_KEY` (Foundry) | SOPS | Regenerate in the Foundry project / key vault | LLM + embeddings |
-| `XAI_API_KEY` (Grok) | SOPS | Regenerate at https://console.x.ai | LLM calls |
+| `AZURE_AI_API_KEY` (mygpt-openai) | SOPS | Regenerate in the OpenAI account (`az cognitiveservices account keys regenerate`) | LLM + embeddings + TTS |
 | `GEMINI_API_KEY` | SOPS | Regenerate at https://aistudio.google.com | LLM calls |
 | `MICROSOFT_CLIENT_SECRET` (SSO) | SOPS | Azure → App registrations → **Certificates & secrets** → new secret | Sign-in |
 | `AZURE_CLIENT_SECRET` (SPN `mygpt-caddy`, DNS-01) | SOPS | `az ad sp credential reset --id 19c2b995-6762-4fbd-9b1f-01a006a295f6` | TLS issue/renew |
@@ -183,7 +188,8 @@ hook blocks *new* leaks but never scrubs history).
 | `LITELLM_MASTER_KEY` (== `OPENAI_API_KEYS` == `RAG_OPENAI_API_KEY`) | SOPS | Generate a new key; **keep all three values identical** | All LLM traffic |
 | Postgres password | SOPS (`DATABASE_URL`, `POSTGRES_PASSWORD`) | Same value in both; recreate the DB PVC on change | All data |
 | `SEARXNG_SECRET` | SOPS | `openssl rand -hex 32` | Web search |
-| `KW_SECRET_API_KEY` (Kokoro TTS) | SOPS | `openssl rand -hex 24` | TTS |
+| `AUDIO_TTS_OPENAI_API_KEY` (Azure TTS) | SOPS | Same as `AZURE_AI_API_KEY` (mygpt-openai) | TTS |
+| `DOCUMENT_INTELLIGENCE_KEY` (doc parsing) | SOPS | Regenerate in the `mygpt-docintel` account | Document parsing |
 | `UI_USERNAME` / `UI_PASSWORD` (LiteLLM admin) | SOPS | Choose a strong pair | Proxy admin |
 | `MOONSHOT_API_KEY` | SOPS | Remove the placeholder if unused | LLM calls |
 
@@ -212,6 +218,15 @@ Notes:
 * **No models in the UI** → `kubectl -n mygpt exec deploy/mygpt-litellm -- …` hit
   `/v1/models` with `LITELLM_MASTER_KEY`; check `files/litellm_config.yaml` and
   the provider keys in the SOPS values.
+* **Uploading a PDF throws `Unexpected token '<', "<html>..."`** → the PDF is over
+  the ingress body limit. `values.ingress.proxyBodySize` (default `50m`); bump it
+  and redeploy.
+* **A `user`-role member sees no models** → `BYPASS_MODEL_ACCESS_CONTROL` must be
+  `True` (the LiteLLM models have no access grants; the flag makes them visible
+  to all verified users).
+* **Document parsing fails** → confirm `rag.content_extraction_engine =
+  "document_intelligence"` and `DOCUMENT_INTELLIGENCE_ENDPOINT`/`KEY` are set
+  (the loader calls the `mygpt-docintel` endpoint).
 
 ## Migration history
 
