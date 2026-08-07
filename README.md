@@ -73,6 +73,9 @@ kubectl -n mygpt port-forward svc/openwebui 8000:8080   # local UI access
 k9s                                                      # terminal UI (pods, logs, shells)
 ```
 
+Feature-by-feature acceptance checklist for signing off the deployment (chat,
+RAG, search, TTS, document parsing, SSO, …): [`docs/functional-signoff.md`](docs/functional-signoff.md).
+
 ## Configuration
 
 | What | Where |
