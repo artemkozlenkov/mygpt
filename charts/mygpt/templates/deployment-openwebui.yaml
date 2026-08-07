@@ -17,6 +17,14 @@ spec:
         - name: openwebui
           image: {{ .Values.images.openwebui }}
           imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              # Branding: strip OpenWebUI's hardcoded " (Open WebUI)" name suffix
+              # (env.py, loaded at startup) and " / Open WebUI" title suffix (JS).
+              sed -i "s|WEBUI_NAME += ' (Open WebUI)'|pass|" /app/backend/open_webui/env.py
+              sed -i "s| / Open WebUI||g" /app/build/_app/immutable/nodes/*.js /app/build/_app/immutable/chunks/*.js
+              exec /app/backend/start.sh
           ports:
             - containerPort: 8080
               name: http

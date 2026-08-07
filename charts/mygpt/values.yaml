@@ -74,7 +74,7 @@ secrets:
     DEFAULT_USER_ROLE: "user"
     SHOW_ADMIN_DETAILS: "false"
     # OpenWebUI general
-    WEBUI_NAME: "MY GPT"
+    WEBUI_NAME: "MyGPT"
     GLOBAL_LOG_LEVEL: "ERROR"
     # Backend endpoint (points at the in-cluster litellm service)
     OPENAI_API_BASE_URL: "http://litellm:4000"
