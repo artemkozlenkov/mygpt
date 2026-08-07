@@ -129,6 +129,11 @@ kubectl -n mygpt exec deploy/mygpt-openwebui -- sh -c \
 ```
 
 **Pass:** key valid, `DOC_INTEL_KEY len` > 0, `engine: document_intelligence`.
+
+> **Backend verified end-to-end (2026-08-07):** a real PDF was submitted to
+> `mygpt-docintel` `prebuilt-read` via API → status `succeeded`, extracted text
+> returned. The DocIntelligence pipeline works; only the UI upload remains.
+
 UI (manual): upload a multi-page PDF to a knowledge base; after ingestion, ask
 a question and confirm the answer references the PDF's content. If a PDF throws
 `Unexpected token '<'`, the upload exceeded the ingress `proxyBodySize`
