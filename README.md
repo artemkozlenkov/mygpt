@@ -8,6 +8,19 @@ Personal hybrid AI chat app: **OpenWebUI** frontend, **LiteLLM** proxy over
 **https://chat.softawebit.com** (tailnet-only). All Azure resources are
 provisioned by Terraform in `infra/azure/`.
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Deploying](#deploying)
+  - [Secrets (SOPS + Azure Key Vault)](#secrets-sops--azure-key-vault)
+  - [First-time cluster bootstrap](#first-time-cluster-bootstrap)
+- [Daily operations](#daily-operations)
+- [Configuration](#configuration)
+- [Adding a new service with its own domain](#adding-a-new-service-with-its-own-domain)
+- [Secret rotation strategy](#secret-rotation-strategy)
+- [Troubleshooting](#troubleshooting)
+- [Migration history](#migration-history)
+
 ## Architecture
 
 ```
@@ -195,25 +208,18 @@ hook blocks *new* leaks but never scrubs history).
 | Credential | Lives in | Rotate by | Blast radius |
 |-----------|----------|-----------|--------------|
 | `AZURE_AI_API_KEY` (mygpt-openai) | SOPS | Regenerate in the OpenAI account (`az cognitiveservices account keys regenerate`) | LLM + embeddings + TTS |
-| `GEMINI_API_KEY` | SOPS | Regenerate at https://aistudio.google.com | LLM calls |
 | `MICROSOFT_CLIENT_SECRET` (SSO) | SOPS | Azure → App registrations → **Certificates & secrets** → new secret | Sign-in |
 | `AZURE_CLIENT_SECRET` (SPN `mygpt-caddy`, DNS-01) | k8s Secret `azuredns-config` (cert-manager ns) | `az ad sp credential reset --id 19c2b995-6762-4fbd-9b1f-01a006a295f6`, then update the k8s Secret | TLS issue/renew |
 | SOPS key `mygpt-sops/sops` (Azure KV) | Azure (URL in `.sops.yaml`) | New KV key version → update `.sops.yaml` → re-encrypt | All encrypted secrets |
 | `LITELLM_MASTER_KEY` (== `OPENAI_API_KEYS` == `RAG_OPENAI_API_KEY`) | SOPS | Generate a new key; **keep all three values identical** | All LLM traffic |
-| Postgres password | SOPS (`DATABASE_URL`, `POSTGRES_PASSWORD`) | Same value in both; recreate the DB PVC on change | All data |
+| Postgres password | SOPS (`DATABASE_URL`, `OPENWEBUI_DATABASE_URL`, `POSTGRES_PASSWORD`) | `ALTER ROLE llmproxy` in the DB, then set all three to the same value (no data loss — see runbook §H) | All data |
 | `SEARXNG_SECRET` | SOPS | `openssl rand -hex 32` | Web search |
 | `AUDIO_TTS_OPENAI_API_KEY` (Azure TTS) | SOPS | Same as `AZURE_AI_API_KEY` (mygpt-openai) | TTS |
 | `DOCUMENT_INTELLIGENCE_KEY` (doc parsing) | SOPS | Regenerate in the `mygpt-docintel` account | Document parsing |
 | `UI_USERNAME` / `UI_PASSWORD` (LiteLLM admin) | SOPS | Choose a strong pair | Proxy admin |
-| `MOONSHOT_API_KEY` | SOPS | Remove the placeholder if unused | LLM calls |
 
 Notes:
 
-* **Known drift — fix before the next upgrade:** six keys in
-  `values.secrets.yaml` sit under `postgres:` instead of `secrets.data:`. The
-  chart renders only `secrets.data`, so `DOCUMENT_INTELLIGENCE_KEY` is **empty
-  in the live Secret today** (document parsing broken). Move the six keys under
-  `secrets.data:` — see `docs/secret-rotation.md` §1.
 * The **gitleaks pre-commit hook** (`git config core.hooksPath .githooks`) blocks
   *new* staged secrets but does **not** scrub history — rotate anything that ever
   touched a committed file.
